@@ -91,105 +91,8 @@ with tab1:
     lista_produtos = df_produtos["Produto"].dropna().astype(str).tolist()
     pesquisa_pr = st.text_input("🔍 Buscar Produto por Nome:")
     
-    lista_pr_mostra = [p for p in lista_produtos if pesquisa_pr.lower() in p.lower()] if pesquisa_pr else lista_produtos
-    
-    exibir_lista_pr = lista_pr_mostra if lista_pr_mostra else ["Nenhum produto"]
-    prod_selecionado = st.selectbox("Confirme o Produto:", exibir_lista_pr)
-    
-    try:
-        dados_prod_filtrados = df_produtos[df_produtos["Produto"] == prod_selecionado]
-        if not dados_prod_filtrados.empty:
-            linha_p = dados_prod_filtrados.iloc[0]
-            preco_un = float(linha_p["Preço"])
-            estoque_un = int(linha_p["Estoque"])
-            desc_max_permitido = float(linha_p["Desconto_Max"])
-            
-            st.info(f"💰 Preço: R$ {preco_un:.2f} | 📦 Estoque: {estoque_un} fardos | 📉 Limite de Desconto: {desc_max_permitido}%")
-            
-            qtd = st.number_input("Quantidade:", min_value=1, max_value=max(1, estoque_un), value=1, step=1)
-            desconto_vendedor = st.number_input("Desconto a Aplicar neste item (%):", min_value=0.0, max_value=100.0, value=0.0, step=0.5)
-            
-            valor_bruto = preco_un * qtd
-            valor_desconto = valor_bruto * (desconto_vendedor / 100.0)
-            total_pedido = valor_bruto - valor_desconto
-        else:
-            preco_un, estoque_un, qtd, total_pedido, desc_max_permitido, desconto_vendedor = 0.0, 1, 1, 0.0, 0.0, 0.0
-    except Exception:
-        preco_un, estoque_un, qtd, total_pedido, desc_max_permitido, desconto_vendedor = 0.0, 1, 1, 0.0, 0.0, 0.0
-
-    estourou_limite = desconto_vendedor > desc_max_permitido
-
-    if estourou_limite:
-        st.error(f"🚨 VOCÊ ULTRAPASSOU O DESCONTO MÁXIMO PERMITIDO! O limite para este produto é de {desc_max_permitido}%.")
-    else:
-        st.write(f"💰 Total calculado com desconto: **R$ {total_pedido:.2f}**")
-
-    with st.form("form_pedido_venda"):
-        forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix Tigrão", "Dinheiro"])
-        obs = st.text_area("Observações")
-        btn_enviar = st.form_submit_button("🚀 Enviar Pedido")
-
-    if btn_enviar:
-        if estourou_limite:
-            st.error("❌ ERRO: O desconto ultrapassa o limite autorizado.")
-        elif not cliente_final or cliente_final == "Nenhum cliente cadastrado" or prod_selecionado == "Nenhum produto":
-            st.error("❌ ERRO: Selecione um cliente e um produto válidos.")
-        else:
-            try:
-                novo_p = pd.DataFrame([{
-                    "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "Codigo_Cliente": cod_c,
-                    "Cliente_Razao": cliente_final,
-                    "CNPJ": cnpj_c,
-                    "IE": ie_c,
-                    "Endereco": end_c,
-                    "Produto": prod_selecionado,
-                    "Quantidade": int(qtd),
-                    "Desconto_Aplicado": f"{desconto_vendedor}%",
-                    "Total": float(total_pedido),
-                    "Pagamento": forma_pagto,
-                    "Obs": obs,
-                    "Status": "Pendente"
-                }])
-                df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
-                df_final.to_excel(CAMINHO_VENDAS, index=False)
-                st.success("✅ Pedido enviado!")
-                st.balloons()
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao salvar: {e}")
-
-# --- ABA 2: CADASTRAR CLIENTE ---
-with tab2:
-    st.subheader("📝 Cadastrar Cliente")
-    with st.form("form_vendedor_cliente"):
-        n_cli = st.text_input("Razão Social / Nome Fantasia:")
-        c_cli = st.text_input("CNPJ:")
-        i_cli = st.text_input("Inscrição Estadual (IE) / Se não tiver coloque 'Isento':", value="Isento")
-        e_cli = st.text_input("Endereço Completo:")
-        t_cli = st.text_input("Telefone:")
-        btn_c = st.form_submit_button("💾 Salvar Cliente")
-    if btn_c and n_cli.strip():
-        prox_cod = int(df_clientes["Codigo"].max() + 1) if not df_clientes.empty else 1
-        pd.concat([df_clientes, pd.DataFrame([{"Codigo": prox_cod, "Nome": n_cli.strip(), "CNPJ": c_cli, "IE": i_cli, "Endereco": e_cli, "Telefone": t_cli}])], ignore_index=True).to_excel(CAMINHO_CLIENTES, index=False)
-        st.success("🎉 Cliente salvo com dados fiscais!")
-        st.rerun()
-
-# --- ABA 3: CONSULTAR PEDIDOS ---
-with tab3:
-    st.subheader("📦 Acompanhamento de Pedidos")
-    if not df_pedidos.empty:
-        st.dataframe(df_pedidos[["Data_Hora", "Cliente_Razao", "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Status"]], use_container_width=True, hide_index=True)
-
-# --- ABA 4: COMISSÕES ---
-with tab4:
-    st.subheader("💰 Suas Comissões")
-    tot_v = df_pedidos["Total"].sum() if not df_pedidos.empty else 0.0
-    st.metric("Volume Geral de Vendas", f"R$ {tot_v:.2f}")
-    st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
-
-# ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON)
+  # ==============================================================================
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - AJUSTE DE RECEBIMENTO EXCEL DISA
 # ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
@@ -198,9 +101,37 @@ acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dad
 if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     st.success("👑 Autenticado! Painel de Controle do Tigrão Liberado.")
     
-    st.subheader("🚚 Exportar Vendas para o ADS TEC DISA")
+    st.subheader("🚚 1. Recebimento de Pedidos para o ADS TEC DISA")
+    
     if not df_pedidos.empty:
+        # Ajuste: Organiza os pedidos por ordem de chegada (Mais recentes primeiro)
+        df_disa = df_pedidos.copy()
+        if "Data_Hora" in df_disa.columns:
+            df_disa = df_disa.sort_values(by="Data_Hora", ascending=False)
+            
+        st.write(f"📢 Você tem **{len(df_disa[df_disa['Status']=='Pendente'])}** pedido(s) pendente(s) aguardando faturamento!")
+        
+        # Converte a tabela atualizada em formato Excel (.xlsx) puro para o DISA
         buffer_excel = io.BytesIO()
         with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
-            # Exporta o layout com todas as colunas organizadas para importação no ERP
-            df_pedidos.to_excel(writer, index=False, sheet_name='DISA_Faturamento')
+            df_disa.to_excel(writer, index=False, sheet_name='Importar_DISA')
+        dados_excel_puros = buffer_excel.getvalue()
+        
+        # Botão direto para baixar o arquivo pronto
+        st.download_button(
+            label="📥 Baixar Pedidos em Excel para Nota Fiscal (.xlsx)",
+            data=dados_excel_puros,
+            file_name=f"pedidos_disa_{datetime.now().strftime('%d_%m_%Y_%H%M')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_download_disa_def"
+        )
+        st.caption("💡 *Clique acima para baixar o arquivo. Depois, é só entrar no seu sistema DISA e importar essa planilha para rodar as notas fiscais automaticamente.*")
+        
+        # Exibe um resumo visual rápido dos pedidos recebidos em ordem
+        st.write("📋 **Visualização dos Pedidos Recebidos (Ordem de Chegada):**")
+        st.dataframe(df_disa[["Data_Hora", "Cliente_Razao", "Produto", "Quantidade", "Total", "Status"]], use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ Nenhum pedido foi recebido no sistema até o momento.")
+        
+    st.markdown("---")
+    # (O restante do código de Incluir e Excluir Produto continua igual abaixo...)
