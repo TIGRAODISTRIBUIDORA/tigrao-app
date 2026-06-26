@@ -16,7 +16,7 @@ CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_CLIENTES = "clientes_banco.xlsx"
 CAMINHO_PRODUTOS = "produtos_banco.xlsx"
 
-# 1. INICIALIZAÇÃO DOS ARQUIVOS SE NÃO EXISTIREM (COM COLUNA DE DESCONTO MÁXIMO)
+# 1. INICIALIZAÇÃO DOS ARQUIVOS SE NÃO EXISTIREM
 if not os.path.exists(CAMINHO_PRODUTOS):
     pd.DataFrame([
         {"Produto": "Cerveja Lata 350ml (Fardo c/ 12)", "Preço": 36.00, "Estoque": 100, "Desconto_Max": 10.0},
@@ -38,7 +38,6 @@ df_produtos = pd.read_excel(CAMINHO_PRODUTOS)
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# Garante que a coluna Desconto_Max existe em bases antigas
 if "Desconto_Max" not in df_produtos.columns:
     df_produtos["Desconto_Max"] = 0.0
     df_produtos.to_excel(CAMINHO_PRODUTOS, index=False)
@@ -46,14 +45,14 @@ if "Desconto_Max" not in df_produtos.columns:
 # ABAS DE TRABALHO DO APP
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "📦 Consultar Pedidos", "💰 Comissões"])
 
-# --- ABA 1: PASSAR PEDIDO (COM VALIDAÇÃO DE DESCONTO BLOQUEANTE) ---
+# --- ABA 1: PASSAR PEDIDO (CORRIGIDA E BLINDADA) ---
 with tab1:
     st.subheader("1. Dados do Cliente")
     lista_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
     pesquisa_cl = st.text_input("🔍 Buscar Cliente por Nome ou Código:")
     
     if pesquisa_cl:
-        df_f_cl = df_clientes[df_clientes["Nome"].str.contains(pesquisa_cl, case=False, na=False) | df_clientes["Codigo"].astype(str).str.contains(pesquisa_cl, na=False)]
+        df_f_cl = df_clientes[df_clientes["Nome"].astype(str).str.contains(pesquisa_cl, case=False, na=False) | df_clientes["Codigo"].astype(str).str.contains(pesquisa_cl, na=False)]
         lista_cl_mostra = df_f_cl["Nome"].tolist()
     else:
         lista_cl_mostra = lista_clientes
@@ -62,10 +61,15 @@ with tab1:
         st.error("❌ Cliente não localizado.")
         cliente_final = None
     else:
-        cliente_final = st.selectbox("Selecione o cliente:", lista_cl_mostra if lista_cl_mostra else ["Nenhum cliente cadastrado"])
+        exibir_lista_cl = lista_cl_mostra if lista_cl_mostra else ["Nenhum cliente cadastrado"]
+        cliente_final = st.selectbox("Selecione o cliente:", exibir_lista_cl)
+        
         if cliente_final and cliente_final != "Nenhum cliente cadastrado":
-            dados_c = df_clientes[df_clientes["Nome"] == cliente_final].iloc
-            st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{dados_c['Codigo']})")
+            dados_filtrados = df_clientes[df_clientes["Nome"] == cliente_final]
+            if not dados_filtrados.empty:
+                dados_c = dados_filtrados.iloc[0]
+                st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{int(dados_c['Codigo'])})")
+                st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']}")
 
     st.markdown("---")
     st.subheader("2. Itens do Pedido")
@@ -74,46 +78,69 @@ with tab1:
     
     lista_pr_mostra = [p for p in lista_produtos if pesquisa_pr.lower() in p.lower()] if pesquisa_pr else lista_produtos
     
-    with st.form("form_pedido_venda"):
-        prod_selecionado = st.selectbox("Confirme o Produto:", lista_pr_mostra if lista_pr_mostra else ["Nenhum produto"])
-        
-        try:
-            linha_p = df_produtos[df_produtos["Produto"] == prod_selecionado].iloc
+    exibir_lista_pr = lista_pr_mostra if lista_pr_mostra else ["Nenhum produto"]
+    prod_selecionado = st.selectbox("Confirme o Produto:", exibir_lista_pr)
+    
+    try:
+        dados_prod_filtrados = df_produtos[df_produtos["Produto"] == prod_selecionado]
+        if not dados_prod_filtrados.empty:
+            linha_p = dados_prod_filtrados.iloc[0]
             preco_un = float(linha_p["Preço"])
             estoque_un = int(linha_p["Estoque"])
             desc_max_permitido = float(linha_p["Desconto_Max"])
             
-            st.info(f"💰 Preço: R$ {preco_un:.2f} | 📦 Estoque: {estoque_un} fardos | 📉 Desconto Máximo Autorizado: {desc_max_permitido}%")
+            st.info(f"💰 Preço: R$ {preco_un:.2f} | 📦 Estoque: {estoque_un} fardos | 📉 Limite de Desconto: {desc_max_permitido}%")
             
             qtd = st.number_input("Quantidade:", min_value=1, max_value=max(1, estoque_un), value=1, step=1)
-            
-            # Campo para o vendedor colocar o desconto
             desconto_vendedor = st.number_input("Desconto a Aplicar neste item (%):", min_value=0.0, max_value=100.0, value=0.0, step=0.5)
             
-            # Cálculo do valor bruto e do desconto líquido
             valor_bruto = preco_un * qtd
             valor_desconto = valor_bruto * (desconto_vendedor / 100.0)
             total_pedido = valor_bruto - valor_desconto
-            
-        except Exception:
+        else:
             preco_un, estoque_un, qtd, total_pedido, desc_max_permitido, desconto_vendedor = 0.0, 1, 1, 0.0, 0.0, 0.0
+    except Exception:
+        preco_un, estoque_un, qtd, total_pedido, desc_max_permitido, desconto_vendedor = 0.0, 1, 1, 0.0, 0.0, 0.0
 
+    # VALIDAÇÃO EM TEMPO REAL DO DESCONTO MÁXIMO
+    estourou_limite = desconto_vendedor > desc_max_permitido
+
+    if estourou_limite:
+        st.error(f"🚨 VOCÊ ULTRAPASSOU O DESCONTO MÁXIMO PERMITIDO! O limite para este produto é de {desc_max_permitido}%.")
+    else:
+        st.write(f"💰 Total calculado com desconto: **R$ {total_pedido:.2f}**")
+
+    # Formulário para envio
+    with st.form("form_pedido_venda"):
         forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix Tigrão", "Dinheiro"])
         obs = st.text_area("Observações")
-        
-        st.markdown(f"### 💰 Total com Desconto: **R$ {total_pedido:.2f}**")
         btn_enviar = st.form_submit_button("🚀 Enviar Pedido")
 
-    if btn_enviar and cliente_final and prod_selecionado != "Nenhum fardo":
-        # BARREIRA DE SEGURANÇA: Se o vendedor estourar o limite, o app não grava o pedido de jeito nenhum
-        if desconto_vendedor > desc_max_permitido:
-            st.error(f"❌ PEDIDO BLOQUEADO! O desconto digitado ({desconto_vendedor}%) é maior do que o máximo autorizado pela diretoria do Tigrão para este produto ({desc_max_permitido}%).")
+    if btn_enviar:
+        if estourou_limite:
+            st.error("❌ ERRO: O pedido não pode ser enviado porque o desconto ultrapassa o limite autorizado.")
+        elif not cliente_final or cliente_final == "Nenhum cliente cadastrado" or prod_selecionado == "Nenhum produto":
+            st.error("❌ ERRO: Selecione um cliente e um produto válidos.")
         else:
-            novo_p = pd.DataFrame([{"Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"), "Cliente": cliente_final, "Produto": prod_selecionado, "Quantidade": int(qtd), "Desconto_Aplicado": f"{desconto_vendedor}%", "Total": float(total_pedido), "Pagamento": forma_pagto, "Obs": obs, "Status": "Pendente"}])
-            pd.concat([df_pedidos, novo_p], ignore_index=True).to_excel(CAMINHO_VENDAS, index=False)
-            st.success("✅ Pedido enviado perfeitamente dentro da margem de desconto!")
-            st.balloons()
-            st.rerun()
+            try:
+                novo_p = pd.DataFrame([{
+                    "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "Cliente": cliente_final,
+                    "Produto": prod_selecionado,
+                    "Quantidade": int(qtd),
+                    "Desconto_Aplicado": f"{desconto_vendedor}%",
+                    "Total": float(total_pedido),
+                    "Pagamento": forma_pagto,
+                    "Obs": obs,
+                    "Status": "Pendente"
+                }])
+                df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
+                df_final.to_excel(CAMINHO_VENDAS, index=False)
+                st.success("✅ Pedido enviado perfeitamente dentro da margem de desconto!")
+                st.balloons()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
 
 # --- ABA 2: CADASTRAR CLIENTE ---
 with tab2:
@@ -143,7 +170,7 @@ with tab4:
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
 # ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - COM PARÂMETROS DE DESCONTO
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON)
 # ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
@@ -154,7 +181,6 @@ if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     
     op_dono = st.radio("Selecione o que deseja fazer no Banco de Dados:", ["Incluir Novo Produto", "Alterar Preço / Estoque / Desconto Max", "Excluir Produto"], horizontal=True)
     
-    # 1. INCLUIR PRODUTO NOVO COM DESCONTO MÁXIMO
     if op_dono == "Incluir Novo Produto":
         st.subheader("➕ Adicionar Novo Item ao Catálogo")
         with st.form("form_add_prod"):
@@ -169,18 +195,4 @@ if acesso_senha == SENHA_EXCLUSIVA_NELSON:
             else:
                 novo_p_df = pd.DataFrame([{"Produto": p_nome.strip(), "Preço": float(p_preco), "Estoque": int(p_est), "Desconto_Max": float(p_desc)}])
                 pd.concat([df_produtos, novo_p_df], ignore_index=True).to_excel(CAMINHO_PRODUTOS, index=False)
-                st.success(f"🎉 Item incluído com {p_desc}% de margem limite de desconto!")
-                st.rerun()
-
-    # 2. ALTERAR PREÇO, ESTOQUE OU DESCONTO
-    elif op_dono == "Alterar Preço / Estoque / Desconto Max":
-        st.subheader("✏️ Atualizar Parâmetros de Venda")
-        p_editar = st.selectbox("Escolha o produto:", lista_produtos)
-        linha_edit = df_produtos[df_produtos["Produto"] == p_editar].index
-        
-        preco_atual = float(df_produtos.loc[linha_edit, "Preço"])
-        estoque_atual = int(df_produtos.loc[linha_edit, "Estoque"])
-        desconto_atual = float(df_produtos.loc[linha_edit, "Desconto_Max"])
-        
-        col_ed1, col_ed2, col_ed3 = st.columns(3)
-        novo_preco = col_ed1.number_input("Novo Preço (R$):", value=preco_atual, min_value=0.1, step=0.5)
+                st.success(f"🎉 Item incluído!")
