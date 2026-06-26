@@ -169,7 +169,7 @@ with tab4:
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
 # ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - COM EXPORTADOR EXCEL INTEGRADO 📥
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - TOTALMENTE ALINHADA
 # ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
@@ -178,23 +178,20 @@ acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dad
 if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     st.success("👑 Autenticado! Painel de Controle do Tigrão Liberado.")
     
-    # 📥 NOVO BLINDAGEM DE EXPORTAÇÃO EXCEL PARA O SISTEMA DE NOTA FISCAL
+    # Exportação de Planilha para Faturamento
     st.subheader("🚚 Exportar Vendas para Faturamento")
     if not df_pedidos.empty:
-        # Prepara o arquivo Excel puro em memória de forma limpa para download rápido
         buffer_excel = io.BytesIO()
         with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
             df_pedidos.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
         dados_excel_puros = buffer_excel.getvalue()
         
-        # Botão de download nativo do sistema
         st.download_button(
             label="📥 Baixar Planilha para Nota Fiscal (Excel .xlsx)",
             data=dados_excel_puros,
             file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.caption("💡 *Clique no botão acima para baixar a planilha limpa com todos os pedidos prontos para importar no seu emissor de Notas.*")
     else:
         st.info("Nenhum pedido foi lançado no sistema ainda para faturar.")
         
@@ -202,3 +199,11 @@ if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     op_dono = st.radio("Selecione a ação gerencial:", ["Alterar Preços e Estoques (Modo Planilha)", "Incluir Novo Produto", "Excluir Produto"], horizontal=True)
     
     if op_dono == "Alterar Preços e Estoques (Modo Planilha)":
+        st.subheader("✏️ Alterar Preços Direto na Tabela (Estilo Excel)")
+        tabela_editavel = st.data_editor(
+            df_produtos[["Produto", "Preço", "Estoque", "Desconto_Max"]],
+            use_container_width=True,
+            hide_index=True,
+            disabled=["Produto"]
+        )
+        if st.button("💾 Salvar Alterações da Tabela"):
