@@ -65,11 +65,11 @@ if not st.session_state["logado"]:
         if botao_logar:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_login.strip().lower()) & (df_usuarios["Senha"].astype(str) == senha_login.strip())]
             if not usuario_validar.empty:
-                status_usuario = str(usuario_validar.iloc[0]["Status"])
+                status_usuario = str(usuario_validar.iloc["Status"])
                 if status_usuario == "Aprovado":
                     st.session_state["logado"] = True
-                    st.session_state["usuario_nome"] = usuario_validar.iloc[0]["Nome"]
-                    st.session_state["usuario_email"] = usuario_validar.iloc[0]["Email"].strip().lower()
+                    st.session_state["usuario_nome"] = usuario_validar.iloc["Nome"]
+                    st.session_state["usuario_email"] = usuario_validar.iloc["Email"].strip().lower()
                     st.success(f"Bem-vindo, {st.session_state['usuario_nome']}!")
                     st.rerun()
                 else:
@@ -117,7 +117,7 @@ else:
         
     abas = st.tabs(abas_titulos)
 
-    # --- ABA 1: PASSAR PEDIDO ---
+    # --- ABA 1: PASSAR PEDIDO (DIGITAÇÃO TOTALMENTE CORRIGIDA) ---
     with abas[0]:
         st.subheader("1. Seleção do Cliente")
         pesquisa_input = st.text_input("🔍 Digite o Nome ou o Código do cliente para buscar:")
@@ -133,7 +133,7 @@ else:
             cliente_final_nome = None
         else:
             exibir_lista = lista_selectbox if lista_selectbox else ["Nenhum cliente disponível"]
-            cliente_final_nome = st.selectbox("Selecione o cliente verificado na lista:", exibir_lista)
+            cliente_final_nome = st.selectbox("Selecione o cliente verificado na lista:", exibir_lista, key="sel_cliente_pedido")
             if cliente_final_nome and cliente_final_nome != "Nenhum cliente disponível":
                 dados_c = df_clientes_salvos[df_clientes_salvos["Nome"].astype(str) == cliente_final_nome].iloc[0]
                 st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{int(dados_c['Codigo'])})")
@@ -141,15 +141,21 @@ else:
 
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
-        pesquisa_prod_input = st.text_input("🔍 Digite o nome do Produto para filtrar o catálogo:")
+        
+        # CAMPO DE TEXTO PARA DIGITAR O PRODUTO E LIBERAR O TECLADO 🔍
+        pesquisa_prod_input = st.text_input("🔍 Digite o nome do Produto para buscar no catálogo:")
         if pesquisa_prod_input:
             df_filtrado_prod = df_produtos[df_produtos["Produto"].astype(str).str.lower().str.contains(pesquisa_prod_input.strip().lower(), na=False)]
             lista_produtos_filtrados = df_filtrado_prod["Produto"].tolist()
         else:
             lista_produtos_filtrados = lista_produtos_geral
+            
+        if pesquisa_prod_input and not lista_produtos_filtrados:
+            st.warning(f"⚠️ Nenhum produto encontrado com o nome '{pesquisa_prod_input}'. Mostrando catálogo completo.")
+            lista_produtos_filtrados = lista_produtos_geral
 
         with st.form("formulario_pedido"):
-            produto_selecionado = st.selectbox("Selecione o Produto:", lista_produtos_filtrados if lista_produtos_filtrados else ["Nenhum produto"])
+            produto_selecionado = st.selectbox("Confirme o Produto na lista:", lista_produtos_filtrados if lista_produtos_filtrados else ["Nenhum produto"])
             try:
                 prod_linha = df_produtos[df_produtos["Produto"] == produto_selecionado].iloc[0]
                 preco_unitario = float(prod_linha["Preço (R$)"])
@@ -169,14 +175,3 @@ else:
             novo_pedido = pd.DataFrame([{"Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"), "Cliente": cliente_final_nome, "Produto": produto_selecionado, "Quantidade": int(quantidade), "Total": float(valor_final), "Pagamento": forma_pagamento, "Obs": observacao, "Status": "Pendente", "Vendedor": st.session_state["usuario_nome"]}])
             pd.concat([df_pedidos, novo_pedido], ignore_index=True).to_excel(CAMINHO_EXCEL, index=False)
             st.success(f"✅ Pedido enviado!")
-            st.balloons()
-            st.rerun()
-
-    # --- ABA 2: CADASTRAR CLIENTE ---
-    with abas[1]:
-        st.subheader("📝 Cadastro de Novo Cliente")
-        with st.form("formulario_cliente"):
-            nome_input = st.text_input("Nome Razão Social")
-            cnpj_input = st.text_input("CNPJ")
-            ie_input = st.text_input("IE")
-            endereco_input = st.text_input("Endereço")
