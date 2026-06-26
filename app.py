@@ -8,16 +8,13 @@ st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout=
 
 st.title("🐯 Tigrão Distribuidora")
 
-# PARAMETRIZAÇÃO GERAL DO TIGRÃO
 PERCENTUAL_COMISSAO = 0.05  
-SENHA_EXCLUSIVA_NELSON = "TigraoNelson2026"  # <--- SUA SENHA DE DONO
+SENHA_EXCLUSIVA_NELSON = "TigraoNelson2026"  
 
-# Caminhos dos arquivos de banco de dados internos no servidor
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_CLIENTES = "clientes_banco.xlsx"
 CAMINHO_PRODUTOS = "produtos_banco.xlsx"
 
-# 1. INICIALIZAÇÃO DOS ARQUIVOS SE NÃO EXISTIREM
 if not os.path.exists(CAMINHO_PRODUTOS):
     pd.DataFrame([
         {"Produto": "Cerveja Lata 350ml (Fardo c/ 12)", "Preço": 36.00, "Estoque": 100, "Desconto_Max": 10.0},
@@ -34,7 +31,6 @@ if not os.path.exists(CAMINHO_CLIENTES):
 if not os.path.exists(CAMINHO_VENDAS):
     pd.DataFrame(columns=["Data_Hora", "Cliente", "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Pagamento", "Obs", "Status"]).to_excel(CAMINHO_VENDAS, index=False)
 
-# LEITURA CONSTANTE DOS BANCOS DE DADOS
 df_produtos = pd.read_excel(CAMINHO_PRODUTOS)
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
@@ -43,10 +39,8 @@ if "Desconto_Max" not in df_produtos.columns:
     df_produtos["Desconto_Max"] = 0.0
     df_produtos.to_excel(CAMINHO_PRODUTOS, index=False)
 
-# ABAS DE TRABALHO DO APP
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "📦 Consultar Pedidos", "💰 Comissões"])
 
-# --- ABA 1: PASSAR PEDIDO ---
 with tab1:
     st.subheader("1. Dados do Cliente")
     lista_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
@@ -141,7 +135,6 @@ with tab1:
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
-# --- ABA 2: CADASTRAR CLIENTE ---
 with tab2:
     st.subheader("📝 Cadastrar Cliente")
     with st.form("form_vendedor_cliente"):
@@ -152,25 +145,20 @@ with tab2:
     if btn_c and n_cli.strip():
         prox_cod = int(df_clientes["Codigo"].max() + 1) if not df_clientes.empty else 1
         pd.concat([df_clientes, pd.DataFrame([{"Codigo": prox_cod, "Nome": n_cli.strip(), "CNPJ": c_cli, "Endereco": e_cli}])], ignore_index=True).to_excel(CAMINHO_CLIENTES, index=False)
-        st.success("🎉 Cliente salvo!")
+        st.success("🎉 Cliente saved!")
         st.rerun()
 
-# --- ABA 3: CONSULTAR PEDIDOS ---
 with tab3:
     st.subheader("📦 Acompanhamento de Pedidos")
     if not df_pedidos.empty:
         st.dataframe(df_pedidos[["Data_Hora", "Cliente", "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Status"]], use_container_width=True, hide_index=True)
 
-# --- ABA 4: COMISSÕES ---
 with tab4:
     st.subheader("💰 Suas Comissões")
     tot_v = df_pedidos["Total"].sum() if not df_pedidos.empty else 0.0
     st.metric("Volume Geral de Vendas", f"R$ {tot_v:.2f}")
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
-# ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - TOTALMENTE ALINHADA
-# ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
 acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dados:", type="password")
@@ -178,7 +166,6 @@ acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dad
 if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     st.success("👑 Autenticado! Painel de Controle do Tigrão Liberado.")
     
-    # Exportação de Planilha para Faturamento
     st.subheader("🚚 Exportar Vendas para Faturamento")
     if not df_pedidos.empty:
         buffer_excel = io.BytesIO()
@@ -207,3 +194,15 @@ if acesso_senha == SENHA_EXCLUSIVA_NELSON:
             disabled=["Produto"]
         )
         if st.button("💾 Salvar Alterações da Tabela"):
+            try:
+                tabela_editavel.to_excel(CAMINHO_PRODUTOS, index=False)
+                st.success("✅ Toda a tabela foi atualizada!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar a tabela: {e}")
+
+    elif op_dono == "Incluir Novo Produto":
+        st.subheader("➕ Adicionar Novo Item ao Catálogo")
+        with st.form("form_add_prod"):
+            p_nome = st.text_input("Nome do Produto:")
+            p_preco = st.number_input("Preço de Venda (R$):", min_value=0.1, value=10.0, step=0.5)
