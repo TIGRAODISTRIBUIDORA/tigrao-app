@@ -95,7 +95,7 @@ if not st.session_state["logado"]:
                 pd.concat([df_usuarios, novo_user_df], ignore_index=True).to_excel(CAMINHO_USUARIOS_EXCEL, index=False)
                 st.success("🎉 Cadastro enviado com sucesso! Aguarde a liberação do administrador.")
 
-# --- SISTEMA LIBERADO (APÓS LOGIN COM SUCESSO) ---
+# --- SISTEMA LIBERADO (APÓS LOGIN) ---
 else:
     st.write(f"👤 Conectado como: **{st.session_state['usuario_nome']}** ({st.session_state['usuario_email']})")
     if st.button("🚪 Sair do Aplicativo"):
@@ -109,22 +109,16 @@ else:
     lista_nomes_reais = df_clientes_salvos["Nome"].dropna().astype(str).tolist()
     lista_produtos_geral = df_produtos["Produto"].tolist()
 
-    # DEFINIÇÃO DAS ABAS INDEPENDENTES
+    # CRIAÇÃO DAS ABAS INDEPENDENTES
     is_admin = st.session_state["usuario_email"] == EMAIL_DONO
-    
+    abas_titulos = ["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Clientes", "📦 Consultar Pedidos", "💰 Comissões"]
     if is_admin:
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Clientes", 
-            "📦 Consultar Pedidos", "💰 Comissões", "👑 Central do Dono"
-        ])
-    else:
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Clientes", 
-            "📦 Consultar Pedidos", "💰 Comissões"
-        ])
+        abas_titulos.append("👑 Central do Dono")
+        
+    abas = st.tabs(abas_titulos)
 
     # --- ABA 1: PASSAR PEDIDO ---
-    with tab1:
+    with abas[0]:
         st.subheader("1. Seleção do Cliente")
         pesquisa_input = st.text_input("🔍 Digite o Nome ou o Código do cliente para buscar:")
         if pesquisa_input and not df_clientes_salvos.empty:
@@ -179,6 +173,10 @@ else:
             st.rerun()
 
     # --- ABA 2: CADASTRAR CLIENTE ---
-    with tab2:
+    with abas[1]:
         st.subheader("📝 Cadastro de Novo Cliente")
         with st.form("formulario_cliente"):
+            nome_input = st.text_input("Nome Razão Social")
+            cnpj_input = st.text_input("CNPJ")
+            ie_input = st.text_input("IE")
+            endereco_input = st.text_input("Endereço")
