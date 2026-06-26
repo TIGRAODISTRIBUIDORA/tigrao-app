@@ -6,7 +6,7 @@ import os
 st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout="centered")
 
 st.title("🐯 Tigrão Distribuidora")
-st.write("Painel do Vendedor - Busca e Validação Corrigidas")
+st.write("Painel do Vendedor - Sistema de Busca Corrigido")
 
 # PARAMETRIZAÇÃO DE COMISSÃO (5%)
 PERCENTUAL_COMISSAO = 0.05  
@@ -24,11 +24,7 @@ if not os.path.exists(CAMINHO_CLIENTES_EXCEL):
     clientes_iniciais.to_excel(CAMINHO_CLIENTES_EXCEL, index=False)
 
 df_clientes_salvos = pd.read_excel(CAMINHO_CLIENTES_EXCEL)
-
-# Garante que a coluna Codigo existe
-if "Codigo" not in df_clientes_salvos.columns:
-    df_clientes_salvos.insert(0, "Codigo", range(1, len(df_clientes_salvos) + 1))
-    df_clientes_salvos.to_excel(CAMINHO_CLIENTES_EXCEL, index=False)
+lista_nomes_reais = df_clientes_salvos["Nome"].dropna().tolist()
 
 # 2. BANCO DE DADOS DE PEDIDOS
 if os.path.exists(CAMINHO_EXCEL):
@@ -53,46 +49,44 @@ aba_pedido, aba_cadastro, aba_ver_clientes, aba_consulta_pedidos, aba_comissoes 
     "💰 Comissões"
 ])
 
-# --- ABA 1: PASSAR PEDIDO (CORRIGIDA) ---
+# --- ABA 1: PASSAR PEDIDO (DIGITAÇÃO TOTALMENTE CORRIGIDA) ---
 with aba_pedido:
-    st.subheader("1. Dados do Cliente")
+    st.subheader("1. Seleção do Cliente")
     
-    # Campo de texto livre para o vendedor digitar (Não interfere na validação até ele escolher)
-    texto_pesquisa = st.text_input("🔍 Digite o Nome ou o Código para filtrar a lista:")
+    # Campo de texto livre padrão (NÃO atualiza a página a cada letra digitada)
+    pesquisa_input = st.text_input("✍️ Digite o Nome ou o Código do cliente:")
     
-    # Monta as opções dinamicamente com base na digitação
-    df_clientes_salvos["Exibicao"] = df_clientes_salvos.apply(lambda r: f"[COD-{int(r['Codigo'])}] {r['Nome']}", axis=1)
-    
-    if texto_pesquisa:
-        df_filtrado_opcoes = df_clientes_salvos[
-            df_clientes_salvos["Nome"].str.contains(texto_pesquisa, case=False, na=False) |
-            df_clientes_salvos["Codigo"].astype(str).str.contains(texto_pesquisa, case=False, na=False)
+    # Filtro de busca na base de dados
+    if pesquisa_input:
+        df_filtrado_cl = df_clientes_salvos[
+            df_clientes_salvos["Nome"].str.contains(pesquisa_input, case=False, na=False) |
+            df_clientes_salvos["Codigo"].astype(str).str.contains(pesquisa_input, case=False, na=False)
         ]
-        lista_final_selectbox = df_filtrado_opcoes["Exibicao"].tolist()
     else:
-        lista_final_selectbox = df_clientes_salvos["Exibicao"].tolist()
+        df_filtrado_cl = df_clientes_salvos.copy()
         
-    # Se a busca falhar, avisa em VERMELHO e mostra todos para não travar
-    if not lista_final_selectbox:
-        st.error("❌ CLIENTE NÃO ENCONTRADO! Verifique o nome ou cadastre o cliente.")
-        lista_final_selectbox = df_clientes_salvos["Exibicao"].tolist()
-        cliente_valido = False
-    else:
-        cliente_valido = True
-
-    cliente_selecionado_comb = st.selectbox("Selecione o Cliente confirmado na lista:", lista_final_selectbox)
+    # Dropdown limpo apenas com os clientes encontrados
+    lista_selectbox = df_filtrado_cl["Nome"].dropna().tolist()
     
-    # A VALIDAÇÃO SÓ ACONTECE APÓS A ESCOLA DO ITEM NA LISTA
-    if cliente_selecionado_comb and cliente_valido:
-        # Extrai o nome limpo do cliente tirando o [COD-XXX]
-        nome_limpo_cliente = cliente_selecionado_comb.split("] ", 1)[1] if "]" in cliente_selecionado_comb else cliente_selecionado_comb
-        dados_c = df_clientes_salvos[df_clientes_salvos["Nome"] == nome_limpo_cliente].iloc[0]
-        
-        # SINAL VERDE DE CLIENTE SELECIONADO E CORRETO 🟩
-        st.success(f"✅ CLIENTE CONFIRMADO: {dados_c['Nome']}")
-        st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']} | **Tel:** {dados_c['Telefone']}")
+    # VALIDAÇÃO VISUAL DINÂMICA (VERDE OU VERMELHO) 🟩 🟥
+    if pesquisa_input and df_filtrado_cl.empty:
+        st.error(f"🟥 CLIENTE NÃO ENCONTRADO! Nenhuma empresa corresponde a '{pesquisa_input}'")
+        cliente_final_nome = None
+    elif pesquisa_input and not df_filtrado_cl.empty:
+        cliente_final_nome = st.selectbox("Selecione o cliente confirmado na lista:", lista_selectbox)
+        if cliente_final_nome:
+            dados_c = df_clientes_salvos[df_clientes_salvos["Nome"] == cliente_final_nome].iloc[0]
+            st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{int(dados_c['Codigo'])})")
+            st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']} | **Tel:** {dados_c['Telefone']}")
     else:
-        nome_limpo_cliente = ""
+        # Se ele não digitou nada ainda, exibe a lista geral normalmente para escolha manual
+        cliente_final_nome = st.selectbox("Selecione o cliente cadastrado:", lista_nomes_reais)
+        if cliente_final_nome:
+            dados_c = df_clientes_salvos[df_clientes_salvos["Nome"] == cliente_final_nome].iloc[0]
+            st.info(f"ℹ️ Cliente selecionado: {dados_c['Nome']}")
+            st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']}")
+
+    st.markdown("---")
 
     # Formulário para os itens do pedido
     with st.form("formulario_pedido"):
@@ -116,13 +110,13 @@ with aba_pedido:
         botao_enviar = st.form_submit_button("🚀 Enviar Pedido para o Tigrão")
 
     if botao_enviar:
-        if not nome_limpo_cliente:
-            st.error("❌ Erro: Selecione um cliente válido antes de enviar o pedido.")
+        if not cliente_final_nome:
+            st.error("❌ Erro: Selecione um cliente verificado antes de processar o pedido.")
         else:
             try:
                 novo_pedido = pd.DataFrame([{
                     "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "Cliente": nome_limpo_cliente,
+                    "Cliente": cliente_final_nome,
                     "Produto": produto_selecionado,
                     "Quantidade": int(quantidade),
                     "Total": float(valor_final),
@@ -154,7 +148,7 @@ with aba_cadastro:
     if botao_cadastrar:
         if nome_input.strip() == "" or cnpj_input.strip() == "":
             st.warning("⚠️ Nome e CNPJ são obrigatórios.")
-        elif nome_input.strip() in df_clientes_salvos["Nome"].tolist():
+        elif nome_input.strip() in lista_nomes_reais:
             st.error("❌ Este cliente já existe!")
         else:
             try:
@@ -168,7 +162,7 @@ with aba_cadastro:
                     "IE": ie_input.strip(),
                     "Telefone": telefone_input.strip()
                 }])
-                df_atualizado = pd.concat([df_clientes_salvos.drop(columns=["Exibicao"], errors="ignore"), novo_cliente_df], ignore_index=True)
+                df_atualizado = pd.concat([df_clientes_salvos, novo_cliente_df], ignore_index=True)
                 df_atualizado.to_excel(CAMINHO_CLIENTES_EXCEL, index=False)
                 st.success(f"🎉 Cliente cadastrado com sucesso! Código gerado: COD-{proximo_codigo}")
                 st.rerun()
@@ -180,7 +174,7 @@ with aba_ver_clientes:
     st.subheader("🔍 Lista de Clientes Cadastrados")
     busca_cliente = st.text_input("🔍 Digite o Nome ou Código para pesquisar na listagem geral")
     
-    df_clientes_visualizar = df_clientes_salvos.drop(columns=["Exibicao"], errors="ignore").copy()
+    df_clientes_visualizar = df_clientes_salvos.copy()
     if busca_cliente:
         df_clientes_visualizar["Codigo_Str"] = df_clientes_visualizar["Codigo"].astype(str)
         df_clientes_visualizar = df_clientes_visualizar[
@@ -207,4 +201,10 @@ with aba_consulta_pedidos:
     if not df_consulta.empty:
         st.dataframe(df_consulta[["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Status", "Pagamento"]], use_container_width=True, hide_index=True)
     else:
+        st.info(f"ℹ️ Nenhum pedido encontrado na categoria: {status_escolhido}.")
 
+# --- ABA 5: COMISSÕES ---
+with aba_comissoes:
+    st.subheader("💰 Extrato Financeiro de Comissões")
+    if not df_pedidos.empty:
+        total_vendas = df_pedidos["Total"].sum()
