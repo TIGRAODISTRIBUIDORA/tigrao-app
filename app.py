@@ -109,9 +109,9 @@ else:
     lista_nomes_reais = df_clientes_salvos["Nome"].dropna().astype(str).tolist()
     lista_produtos_geral = df_produtos["Produto"].tolist()
 
-    # MONTA AS ABAS. SE FOR O EMAIL DO NELSON, ADICIONA A CENTRAL DO DONO
-    abas_titulos = ["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Clientes", "📦 Consultar Pedidos", "💰 Comissões"]
+    # CRIAÇÃO DAS ABAS INDEPENDENTES
     is_admin = st.session_state["usuario_email"] == EMAIL_DONO
+    abas_titulos = ["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Clientes", "📦 Consultar Pedidos", "💰 Comissões"]
     if is_admin:
         abas_titulos.append("👑 Central do Dono")
         
@@ -179,3 +179,4 @@ else:
             nome_input = st.text_input("Nome Razão Social")
             cnpj_input = st.text_input("CNPJ")
             ie_input = st.text_input("IE")
+            endereco_input = st.text_input("Endereço")
