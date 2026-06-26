@@ -6,147 +6,180 @@ import os
 st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout="centered")
 
 st.title("🐯 Tigrão Distribuidora")
-st.write("Painel do Vendedor - Sistema Prático de Vendas")
 
-# PERCENTUAL DE COMISSÃO PADRÃO (5%)
+# PARAMETRIZAÇÃO GERAL DO TIGRÃO
 PERCENTUAL_COMISSAO = 0.05  
+SENHA_EXCLUSIVA_NELSON = "TigraoNelson2026"  # <--- ESSA É A SUA SENHA DE DONO PARA CONTROLAR TUDO
 
-# Caminhos dos arquivos de dados no servidor em nuvem
-CAMINHO_EXCEL = "vendas_tigrao.xlsx"
-CAMINHO_CLIENTES_EXCEL = "clientes_tigrao.xlsx"
+# Caminhos dos arquivos de banco de dados internos no servidor
+CAMINHO_VENDAS = "vendas_tigrao.xlsx"
+CAMINHO_CLIENTES = "clientes_banco.xlsx"
+CAMINHO_PRODUTOS = "produtos_banco.xlsx"
 
-# 1. INICIALIZAÇÃO DOS BANCOS DE DADOS
-if not os.path.exists(CAMINHO_CLIENTES_EXCEL):
+# 1. INICIALIZAÇÃO DOS ARQUIVOS SE NÃO EXISTIREM
+if not os.path.exists(CAMINHO_PRODUTOS):
     pd.DataFrame([
-        {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00", "Endereco": "Rua Principal, 100", "IE": "Isento", "Telefone": "(11) 99999-9999"},
-        {"Codigo": 2, "Nome": "Mercado do João", "CNPJ": "11.111.111/0001-11", "Endereco": "Av. Central, 500", "IE": "123456789", "Telefone": "(11) 98888-8888"}
-    ]).to_excel(CAMINHO_CLIENTES_EXCEL, index=False)
+        {"Produto": "Cerveja Lata 350ml (Fardo c/ 12)", "Preço": 36.00, "Estoque": 100},
+        {"Produto": "Refrigerante 2L (Fardo c/ 6)", "Preço": 48.00, "Estoque": 100},
+        {"Produto": "Água Mineral 500ml (Fardo c/ 12)", "Preço": 18.00, "Estoque": 100}
+    ]).to_excel(CAMINHO_PRODUTOS, index=False)
 
-if not os.path.exists(CAMINHO_EXCEL):
-    pd.DataFrame(columns=["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Obs", "Status"]).to_excel(CAMINHO_EXCEL, index=False)
+if not os.path.exists(CAMINHO_CLIENTES):
+    pd.DataFrame([
+        {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00", "Endereco": "Rua Principal, 100"},
+        {"Codigo": 2, "Nome": "Mercado do João", "CNPJ": "11.111.111/0001-11", "Endereco": "Av. Central, 500"}
+    ]).to_excel(CAMINHO_CLIENTES, index=False)
 
-# RELEITURA DOS DADOS
-df_clientes_salvos = pd.read_excel(CAMINHO_CLIENTES_EXCEL)
-df_pedidos = pd.read_excel(CAMINHO_EXCEL)
+if not os.path.exists(CAMINHO_VENDAS):
+    pd.DataFrame(columns=["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Obs", "Status"]).to_excel(CAMINHO_VENDAS, index=False)
 
-# CATÁLOGO FIXO DE PRODUTOS
-produtos_dados = {
-    "Produto": ["Cerveja Lata 350ml (Fardo c/ 12)", "Refrigerante 2L (Fardo c/ 6)", "Água Mineral 500ml (Fardo c/ 12)", "Suco Caixa 1L (Caixa c/ 12)"],
-    "Preço (R$)": [36.00, 48.00, 18.00, 60.00],
-    "Estoque": [100, 100, 100, 100]
-}
-df_produtos = pd.DataFrame(produtos_dados)
+# LEITURA CONSTANTE DOS BANCOS DE DADOS
+df_produtos = pd.read_excel(CAMINHO_PRODUTOS)
+df_clientes = pd.read_excel(CAMINHO_CLIENTES)
+df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-lista_nomes_reais = df_clientes_salvos["Nome"].dropna().astype(str).tolist()
-lista_produtos_geral = df_produtos["Produto"].tolist()
+# ABAS DE TRABALHO DO APP
+tab1, tab2, tab3, tab4 = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "📦 Consultar Pedidos", "💰 Comissões"])
 
-# AS 5 ABAS LIMPAS E DIRETAS DO SISTEMA
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Clientes", 
-    "📦 Consultar Pedidos", "💰 Comissões"
-])
-
-# --- ABA 1: PASSAR PEDIDO ---
+# --- ABA 1: PASSAR PEDIDO (PRODUTOS E PREÇOS DINÂMICOS) ---
 with tab1:
-    st.subheader("1. Seleção do Cliente")
-    pesquisa_input = st.text_input("🔍 Digite o Nome ou o Código do cliente para buscar:")
-    if pesquisa_input and not df_clientes_salvos.empty:
-        texto_busca = pesquisa_input.strip().lower()
-        df_filtrado_cl = df_clientes_salvos[df_clientes_salvos["Nome"].astype(str).str.lower().str.contains(texto_busca, na=False) | df_clientes_salvos["Codigo"].astype(str).str.contains(texto_busca, na=False)]
-    else:
-        df_filtrado_cl = df_clientes_salvos.copy()
-    lista_selectbox = df_filtrado_cl["Nome"].dropna().astype(str).tolist()
+    st.subheader("1. Dados do Cliente")
+    lista_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
+    pesquisa_cl = st.text_input("🔍 Buscar Cliente por Nome ou Código:")
     
-    if pesquisa_input and not lista_selectbox:
-        st.error(f"❌ CLIENTE NÃO ENCONTRADO!")
-        cliente_final_nome = None
+    if pesquisa_cl:
+        df_f_cl = df_clientes[df_clientes["Nome"].str.contains(pesquisa_cl, case=False, na=False) | df_clientes["Codigo"].astype(str).str.contains(pesquisa_cl, na=False)]
+        lista_cl_mostra = df_f_cl["Nome"].tolist()
     else:
-        exibir_lista = lista_selectbox if lista_selectbox else ["Nenhum cliente disponível"]
-        cliente_final_nome = st.selectbox("Selecione o cliente verificado na lista:", exibir_lista, key="sel_cliente_pedido")
-        if cliente_final_nome and cliente_final_nome != "Nenhum cliente disponível":
-            dados_c = df_clientes_salvos[df_clientes_salvos["Nome"].astype(str) == cliente_final_nome].iloc[0]
-            st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{int(dados_c['Codigo'])})")
-            st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']}")
+        lista_cl_mostra = lista_clientes
+
+    if pesquisa_cl and not lista_cl_mostra:
+        st.error("❌ Cliente não localizado.")
+        cliente_final = None
+    else:
+        cliente_final = st.selectbox("Selecione o cliente:", lista_cl_mostra if lista_cl_mostra else ["Nenhum cliente cadastrado"])
+        if cliente_final and cliente_final != "Nenhum cliente cadastrado":
+            dados_c = df_clientes[df_clientes["Nome"] == cliente_final].iloc[0]
+            st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{dados_c['Codigo']})")
 
     st.markdown("---")
     st.subheader("2. Itens do Pedido")
-    pesquisa_prod_input = st.text_input("🔍 Digite o nome do Produto para buscar no catálogo:")
-    if pesquisa_prod_input:
-        df_filtrado_prod = df_produtos[df_produtos["Produto"].astype(str).str.lower().str.contains(pesquisa_prod_input.strip().lower(), na=False)]
-        lista_produtos_filtrados = df_filtrado_prod["Produto"].tolist()
-    else:
-        lista_produtos_filtrados = lista_produtos_geral
+    lista_produtos = df_produtos["Produto"].dropna().astype(str).tolist()
+    pesquisa_pr = st.text_input("🔍 Buscar Produto por Nome:")
+    
+    lista_pr_mostra = [p for p in lista_produtos if pesquisa_pr.lower() in p.lower()] if pesquisa_pr else lista_produtos
+    
+    with st.form("form_pedido_venda"):
+        prod_selecionado = st.selectbox("Confirme o Produto:", lista_pr_mostra if lista_pr_mostra else ["Nenhum produto"])
         
-    if pesquisa_prod_input and not lista_produtos_filtrados:
-        st.warning(f"⚠️ Nenhum produto encontrado com o nome '{pesquisa_prod_input}'. Mostrando catálogo completo.")
-        lista_produtos_filtrados = lista_produtos_geral
-
-    with st.form("formulario_pedido"):
-        produto_selecionado = st.selectbox("Confirme o Produto na lista:", lista_produtos_filtrados if lista_produtos_filtrados else ["Nenhum produto"])
         try:
-            prod_linha = df_produtos[df_produtos["Produto"] == produto_selecionado].iloc[0]
-            preco_unitario = float(prod_linha["Preço (R$)"])
-            estoque_atual = int(prod_linha["Estoque"])
-            st.info(f"Preço Unitário: R$ {preco_unitario:.2f} | Estoque no Tigrão: {estoque_atual} fardos")
-            quantidade = st.number_input("Quantidade", min_value=1, max_value=max(1, estoque_atual), step=1)
-            valor_final = preco_unitario * quantidade
+            linha_p = df_produtos[df_produtos["Produto"] == prod_selecionado].iloc[0]
+            preco_un = float(linha_p["Preço"])
+            estoque_un = int(linha_p["Estoque"])
+            st.info(f"💰 Preço: R$ {preco_un:.2f} | 📦 Estoque: {estoque_un} fardos")
+            qtd = st.number_input("Quantidade:", min_value=1, max_value=max(1, estoque_un), value=1, step=1)
+            total_pedido = preco_un * qtd
         except Exception:
-            preco_unitario, estoque_atual, quantidade, valor_final = 0.0, 1, 1, 0.0
-        
-        forma_pagamento = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix Tigrão", "Dinheiro", "Cartão na Entrega"])
-        observacao = st.text_area("Observações")
-        st.markdown(f"### 💰 Total do Pedido: **R$ {valor_final:.2f}**")
-        botao_enviar = st.form_submit_button("🚀 Enviar Pedido para o Tigrão")
+            preco_un, estoque_un, qtd, total_pedido = 0.0, 1, 1, 0.0
 
-    if botao_enviar and cliente_final_nome and produto_selecionado != "Nenhum produto":
-        novo_pedido = pd.DataFrame([{"Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"), "Cliente": cliente_final_nome, "Produto": produto_selecionado, "Quantidade": int(quantidade), "Total": float(valor_final), "Pagamento": forma_pagamento, "Obs": observacao, "Status": "Pendente"}])
-        pd.concat([df_pedidos, novo_pedido], ignore_index=True).to_excel(CAMINHO_EXCEL, index=False)
-        st.success(f"✅ Pedido enviado!")
+        forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix Tigrão", "Dinheiro"])
+        obs = st.text_area("Observações")
+        st.markdown(f"### 💰 Total: **R$ {total_pedido:.2f}**")
+        btn_enviar = st.form_submit_button("🚀 Enviar Pedido")
+
+    if btn_enviar and cliente_final and prod_selecionado != "Nenhum produto":
+        novo_p = pd.DataFrame([{"Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"), "Cliente": cliente_final, "Produto": prod_selecionado, "Quantidade": int(qtd), "Total": float(total_pedido), "Pagamento": forma_pagto, "Obs": obs, "Status": "Pendente"}])
+        pd.concat([df_pedidos, novo_p], ignore_index=True).to_excel(CAMINHO_VENDAS, index=False)
+        st.success("✅ Pedido enviado!")
         st.balloons()
-        st.rerun()
 
-# --- ABA 2: CADASTRAR CLIENTE ---
+# --- ABA 2: CADASTRAR CLIENTE (VENDEDOR CADASTRA DA RUA) ---
 with tab2:
-    st.subheader("📝 Cadastro de Novo Cliente")
-    with st.form("formulario_cliente"):
-        nome_input = st.text_input("Nome Razão Social")
-        cnpj_input = st.text_input("CNPJ")
-        ie_input = st.text_input("IE")
-        endereco_input = st.text_input("Endereço")
-        telefone_input = st.text_input("Telefone")
-        botao_cadastrar = st.form_submit_button("💾 Salvar Cliente")
-    if botao_cadastrar and nome_input.strip() and cnpj_input.strip():
-        proximo_codigo = int(df_clientes_salvos["Codigo"].max() + 1) if not df_clientes_salvos.empty else 1
-        novo_cl = pd.DataFrame([{"Codigo": proximo_codigo, "Nome": nome_input.strip(), "CNPJ": cnpj_input.strip(), "Endereco": endereco_input.strip(), "IE": ie_input.strip(), "Telefone": telefone_input.strip()}])
-        pd.concat([df_clientes_salvos, novo_cl], ignore_index=True).to_excel(CAMINHO_CLIENTES_EXCEL, index=False)
-        st.success("🎉 Cliente cadastrado!")
+    st.subheader("📝 Cadastrar Cliente")
+    with st.form("form_vendedor_cliente"):
+        n_cli = st.text_input("Razão Social:")
+        c_cli = st.text_input("CNPJ:")
+        e_cli = st.text_input("Endereço:")
+        btn_c = st.form_submit_button("💾 Salvar Cliente")
+    if btn_c and n_cli.strip():
+        prox_cod = int(df_clientes["Codigo"].max() + 1) if not df_clientes.empty else 1
+        pd.concat([df_clientes, pd.DataFrame([{"Codigo": prox_cod, "Nome": n_cli.strip(), "CNPJ": c_cli, "Endereco": e_cli}])], ignore_index=True).to_excel(CAMINHO_CLIENTES, index=False)
+        st.success("🎉 Cliente salvo!")
         st.rerun()
 
-# --- ABA 3: CONSULTAR CLIENTES ---
+# --- ABA 3: CONSULTAR PEDIDOS ---
 with tab3:
-    st.subheader("🔍 Lista de Clientes")
-    busca_cliente = st.text_input("Pesquisar cliente geral:")
-    df_vis_cl = df_clientes_salvos.copy()
-    if busca_cliente:
-        df_vis_cl = df_vis_cl[df_vis_cl["Nome"].astype(str).str.lower().str.contains(busca_cliente.strip().lower(), na=False)]
-    st.dataframe(df_vis_cl, use_container_width=True, hide_index=True)
+    st.subheader("📦 Acompanhamento de Pedidos")
+    st.dataframe(df_pedidos[["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Status"]], use_container_width=True, hide_index=True)
 
-# --- ABA 4: CONSULTAR PEDIDOS ---
+# --- ABA 4: COMISSÕES ---
 with tab4:
-    st.subheader("📦 Pedidos lançados")
-    status_escolhido = st.radio("Filtrar Situação:", ["Todos", "Apenas Pendentes", "Apenas Faturados"], horizontal=True)
-    df_c = df_pedidos.copy()
-    if status_escolhido == "Apenas Pendentes" and not df_c.empty: df_c = df_c[df_c["Status"] == "Pendente"]
-    elif status_escolhido == "Apenas Faturados" and not df_c.empty: df_c = df_c[df_c["Status"] == "Faturado"]
-    st.dataframe(df_c, use_container_width=True, hide_index=True)
+    st.subheader("💰 Suas Comissões")
+    tot_v = df_pedidos["Total"].sum() if not df_pedidos.empty else 0.0
+    st.metric("Volume Geral de Vendas", f"R$ {tot_v:.2f}")
+    st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
-# --- ABA 5: COMISSÕES ---
-with tab5:
-    st.subheader("💰 Comissões do Vendedor")
-    total_vendas = df_pedidos["Total"].sum() if not df_pedidos.empty else 0.0
-    st.metric("Total Geral Vendido", f"R$ {total_vendas:.2f}")
-    st.metric("Comissão Acumulada (5%)", f"R$ {(total_vendas * PERCENTUAL_COMISSAO):.2f}")
-    if not df_pedidos.empty:
-        df_comissao_aba = df_pedidos.copy()
-        df_comissao_aba["Comissão (R$)"] = df_comissao_aba["Total"] * PERCENTUAL_COMISSAO
-        st.dataframe(df_comissao_aba[["Data_Hora", "Cliente", "Total", "Comissão (R$)"]], use_container_width=True, hide_index=True)
+# ==============================================================================
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - PROTEGIDA POR SENHA NO FINAL DA TELA
+# ==============================================================================
+st.markdown("---")
+st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
+acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dados:", type="password")
+
+if acesso_senha == SENHA_EXCLUSIVA_NELSON:
+    st.success("👑 Autenticado! Painel de Controle do Tigrão Liberado.")
+    
+    op_dono = st.radio("Selecione o que deseja fazer no Banco de Dados:", ["Incluir Novo Produto", "Alterar Preço / Estoque", "Excluir Produto"], horizontal=True)
+    
+    # 1. INCLUIR PRODUTO NOVO
+    if op_dono == "Incluir Novo Produto":
+        st.subheader("➕ Adicionar Novo Item ao Catálogo")
+        with st.form("form_add_prod"):
+            p_nome = st.text_input("Nome do Produto:")
+            p_preco = st.number_input("Preço de Venda (R$):", min_value=0.1, value=10.0, step=0.5)
+            p_est = st.number_input("Estoque de Entrada (Fardos):", min_value=1, value=50, step=1)
+            btn_add = st.form_submit_button("💾 Gravar no Sistema")
+        if btn_add and p_nome.strip():
+            if p_nome.strip() in lista_produtos:
+                st.error("❌ Este produto já existe no catálogo!")
+            else:
+                novo_p_df = pd.DataFrame([{"Produto": p_nome.strip(), "Preço": float(p_preco), "Estoque": int(p_est)}])
+                pd.concat([df_produtos, novo_p_df], ignore_index=True).to_excel(CAMINHO_PRODUTOS, index=False)
+                st.success(f"🎉 '{p_nome}' incluído com sucesso!")
+                st.rerun()
+
+    # 2. ALTERAR PREÇO OU ESTOQUE
+    elif op_dono == "Alterar Preço / Estoque":
+        st.subheader("✏️ Atualizar Preços e Estoques de Itens Existentes")
+        p_editar = st.selectbox("Escolha o produto que deseja alterar o preço:", lista_produtos)
+        linha_edit = df_produtos[df_produtos["Produto"] == p_editar].index[0]
+        
+        preco_atual = float(df_produtos.loc[linha_edit, "Preço"])
+        estoque_atual = int(df_produtos.loc[linha_edit, "Estoque"])
+        
+        col_ed1, col_ed2 = st.columns(2)
+        novo_preco = col_ed1.number_input("Novo Preço (R$):", value=preco_atual, min_value=0.1, step=0.5)
+        novo_estoque = col_ed2.number_input("Atualizar Estoque (Fardos):", value=estoque_atual, min_value=0, step=1)
+        
+        if st.button("🔄 Aplicar Novo Preço/Estoque"):
+            df_produtos.loc[linha_edit, "Preço"] = novo_preco
+            df_produtos.loc[linha_edit, "Estoque"] = novo_estoque
+            df_produtos.to_excel(CAMINHO_PRODUTOS, index=False)
+            st.success("✅ Tabela de preços atualizada com sucesso no celular de todos os vendedores!")
+            st.rerun()
+
+    # 3. EXCLUIR PRODUTO DO CATÁLOGO
+    elif op_dono == "Excluir Produto":
+        st.subheader("❌ Remover Produto Definitivamente")
+        p_deletar = st.selectbox("Selecione o produto que deseja APAGAR do sistema:", lista_produtos)
+        
+        st.warning(f"Atenção: Ao clicar abaixo, o produto '{p_deletar}' sumirá da tela dos vendedores.")
+        if st.button("🗑️ Confirmar Exclusão Definitiva"):
+            df_produtos = df_produtos[df_produtos["Produto"] != p_deletar]
+            df_produtos.to_excel(CAMINHO_PRODUTOS, index=False)
+            st.success(f"🗑️ Produto removido do banco de dados!")
+            st.rerun()
+            
+    st.markdown("---")
+    st.write("📊 **Visualização Geral do seu Estoque e Preços:**")
+    st.dataframe(df_produtos, use_container_width=True, hide_index=True)
