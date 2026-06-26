@@ -6,7 +6,7 @@ import os
 st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout="centered")
 
 st.title("🐯 Tigrão Distribuidora")
-st.write("Painel do Vendedor - Busca Avançada Ativada")
+st.write("Painel do Vendedor - Confirmação Visual Ativada")
 
 # PARAMETRIZAÇÃO DE COMISSÃO (5%)
 PERCENTUAL_COMISSAO = 0.05  
@@ -15,7 +15,7 @@ PERCENTUAL_COMISSAO = 0.05
 CAMINHO_EXCEL = "vendas_tigrao.xlsx"
 CAMINHO_CLIENTES_EXCEL = "clientes_tigrao.xlsx"
 
-# 1. BANCO DE DADOS DE CLIENTES (COM GERAÇÃO DE CÓDIGO AUTOMÁTICO)
+# 1. BANCO DE DADOS DE CLIENTES
 if not os.path.exists(CAMINHO_CLIENTES_EXCEL):
     clientes_iniciais = pd.DataFrame([
         {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00", "Endereco": "Rua Principal, 100", "IE": "Isento", "Telefone": "(11) 99999-9999"},
@@ -31,7 +31,7 @@ if "Codigo" not in df_clientes_salvos.columns:
     df_clientes_salvos.to_excel(CAMINHO_CLIENTES_EXCEL, index=False)
 
 # Cria a lista de exibição combinando Código + Nome para facilitar a busca do vendedor
-df_clientes_salvos["Exibicao"] = df_clientes_salvos.apply(lambda r: f"[COD-{int(r['Codigo'])}:03d] {r['Nome']}", axis=1)
+df_clientes_salvos["Exibicao"] = df_clientes_salvos.apply(lambda r: f"[COD-{int(r['Codigo']):03d}] {r['Nome']}", axis=1)
 lista_clientes_busca = df_clientes_salvos["Exibicao"].tolist()
 
 # 2. BANCO DE DADOS DE PEDIDOS
@@ -44,7 +44,7 @@ else:
 produtos_dados = {
     "Produto": ["Cerveja Lata 350ml (Fardo c/ 12)", "Refrigerante 2L (Fardo c/ 6)", "Água Mineral 500ml (Fardo c/ 12)", "Suco Caixa 1L (Caixa c/ 12)"],
     "Preço (R$)": [36.00, 48.00, 18.00, 60.00],
-    "Estoque": [150, 200, 300, 100]
+    "Estoque": [150, 200, 500, 100]
 }
 df_produtos = pd.DataFrame(produtos_dados)
 
@@ -57,27 +57,30 @@ aba_pedido, aba_cadastro, aba_ver_clientes, aba_consulta_pedidos, aba_comissoes 
     "💰 Comissões"
 ])
 
-# --- ABA 1: PASSAR PEDIDO (COM BUSCA POR DIGITAÇÃO OU CÓDIGO) ---
+# --- ABA 1: PASSAR PEDIDO (COM VERIFICAÇÃO EM VERDE) ---
 with aba_pedido:
     st.subheader("1. Dados do Cliente")
     
-    # Campo de texto para digitar o Nome ou o Código do cliente
-    texto_pesquisa = st.text_input("🔍 Digite o Nome ou o Código do cliente para filtrar a lista:")
+    texto_pesquisa = st.text_input("🔍 Digite o Nome ou o Código do cliente para buscar:")
     
-    # Filtra as opções com base no que o vendedor digitou
     opcoes_filtradas = [c for c in lista_clientes_busca if texto_pesquisa.lower() in c.lower()]
     
     if not opcoes_filtradas:
         st.warning("⚠️ Nenhum cliente encontrado com esse nome ou código.")
-        opcoes_filtradas = lista_clientes_busca  # Reseta para a lista toda para não travar a tela
+        opcoes_filtradas = lista_clientes_busca  
         
-    cliente_selecionado_comb = st.selectbox("Selecione o Cliente Filtrado:", opcoes_filtradas)
+    cliente_selecionado_comb = st.selectbox("Selecione o Cliente na lista abaixo:", opcoes_filtradas)
     
-    # Extrai o nome limpo do cliente para salvar na planilha de pedidos
-    cliente_selecionado = cliente_selecionado_comb.split("] ", 1)[1] if "]" in cliente_selecionado_comb else cliente_selecionado_comb
+    # Extrai o nome limpo do cliente para busca interna
+    nome_limpo_cliente = cliente_selecionado_comb.split("] ", 1)[1] if "]" in cliente_selecionado_comb else cliente_selecionado_comb
 
-    # Mostra os dados do cliente em destaque na tela
-    dados_c = df_clientes_salvos[df_clientes_salvos["Nome"] == cliente_selecionado].iloc[0]
+    # Puxa os dados desse cliente específico
+    dados_c = df_clientes_salvos[df_clientes_salvos["Nome"] == nome_limpo_cliente].iloc[0]
+    
+    # BOX VERDE DE VERIFICAÇÃO ATIVA 🟩
+    st.success(f"✅ CLIENTE VERIFICADO: {dados_c['Nome']} (COD-{int(dados_c['Codigo'])})")
+    
+    # Mostra os detalhes fiscais organizados logo abaixo da tarja verde
     st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']} | **Tel:** {dados_c['Telefone']}")
 
     # Formulário para os itens do pedido
@@ -105,7 +108,7 @@ with aba_pedido:
         try:
             novo_pedido = pd.DataFrame([{
                 "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                "Cliente": cliente_selecionado,
+                "Cliente": nome_limpo_cliente,
                 "Produto": produto_selecionado,
                 "Quantidade": int(quantidade),
                 "Total": float(valor_final),
@@ -122,7 +125,7 @@ with aba_pedido:
         except Exception as e:
             st.error(f"Erro ao salvar o pedido: {e}")
 
-# --- ABA 2: CADASTRAR CLIENTE (GERANDO CÓDIGO AUTOMÁTICO) ---
+# --- ABA 2: CADASTRAR CLIENTE ---
 with aba_cadastro:
     st.subheader("📝 Cadastro de Novo Cliente")
     with st.form("formulario_cliente"):
@@ -141,7 +144,6 @@ with aba_cadastro:
             st.error("❌ Este cliente já existe!")
         else:
             try:
-                # Calcula automaticamente o próximo número de código disponível
                 proximo_codigo = int(df_clientes_salvos["Codigo"].max() + 1) if not df_clientes_salvos.empty else 1
                 
                 novo_cliente_df = pd.DataFrame([{
@@ -166,7 +168,6 @@ with aba_ver_clientes:
     
     df_clientes_visualizar = df_clientes_salvos.drop(columns=["Exibicao"], errors="ignore").copy()
     if busca_cliente:
-        # Permite buscar na tabela geral digitando o texto do nome ou número do código
         df_clientes_visualizar["Codigo_Str"] = df_clientes_visualizar["Codigo"].astype(str)
         df_clientes_visualizar = df_clientes_visualizar[
             df_clientes_visualizar["Nome"].str.contains(busca_cliente, case=False, na=False) |
@@ -176,7 +177,7 @@ with aba_ver_clientes:
         
     st.dataframe(df_clientes_visualizar[["Codigo", "Nome", "CNPJ", "IE", "Endereco", "Telefone"]], use_container_width=True, hide_index=True)
 
-# --- ABA 4: CONSULTAR PEDIDOS (PENDENTES E FATURADOS) ---
+# --- ABA 4: CONSULTAR PEDIDOS ---
 with aba_consulta_pedidos:
     st.subheader("📦 Acompanhamento de Pedidos")
     status_escolhido = st.radio("Filtrar por Situação do Pedido:", ["Todos", "Apenas Pendentes", "Apenas Faturados", "Apenas Entregues"], horizontal=True)
@@ -205,4 +206,8 @@ with aba_comissoes:
         c1.metric("Volume Total Vendido", f"R$ {total_vendas:.2f}")
         c2.metric("Sua Comissão Acumulada (5%)", f"R$ {total_comissao:.2f}")
         
-
+        st.markdown("---")
+        st.write("📊 **Resumo de ganhos por pedido enviado:**")
+        
+        df_comissao_aba = df_pedidos.copy()
+        df_comissao_aba["Comissão (R$)"] = df_comissao_aba["Total"] * PERCENTUAL_COMISSAO
