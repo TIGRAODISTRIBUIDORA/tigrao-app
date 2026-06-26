@@ -17,7 +17,7 @@ CAMINHO_CLIENTES_EXCEL = "clientes_tigrao.xlsx"
 CAMINHO_USUARIOS_EXCEL = "usuarios_tigrao.xlsx"
 CAMINHO_PRODUTOS_EXCEL = "produtos_tigrao.xlsx"
 
-# 1. INICIALIZAÇÃO DOS BANCOS DE DADOS (PROTEGIDO)
+# 1. INICIALIZAÇÃO DOS BANCOS DE DADOS
 if not os.path.exists(CAMINHO_USUARIOS_EXCEL):
     pd.DataFrame([{"Nome": "Nelson Dono", "Email": EMAIL_DONO, "Senha": "123", "Status": "Aprovado"}]).to_excel(CAMINHO_USUARIOS_EXCEL, index=False)
 
