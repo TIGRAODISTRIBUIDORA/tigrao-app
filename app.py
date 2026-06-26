@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import io
 import os
 
 st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout="centered")
@@ -168,7 +169,7 @@ with tab4:
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
 # ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (CORRIGIDA)
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - COM EXPORTADOR EXCEL INTEGRADO 📥
 # ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
@@ -177,24 +178,27 @@ acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dad
 if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     st.success("👑 Autenticado! Painel de Controle do Tigrão Liberado.")
     
-    op_dono = st.radio("Selecione o que deseja fazer no Banco de Dados:", ["Incluir Novo Produto", "Alterar Preço / Estoque / Desconto Max", "Excluir Produto"], horizontal=True)
+    # 📥 NOVO BLINDAGEM DE EXPORTAÇÃO EXCEL PARA O SISTEMA DE NOTA FISCAL
+    st.subheader("🚚 Exportar Vendas para Faturamento")
+    if not df_pedidos.empty:
+        # Prepara o arquivo Excel puro em memória de forma limpa para download rápido
+        buffer_excel = io.BytesIO()
+        with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
+            df_pedidos.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
+        dados_excel_puros = buffer_excel.getvalue()
+        
+        # Botão de download nativo do sistema
+        st.download_button(
+            label="📥 Baixar Planilha para Nota Fiscal (Excel .xlsx)",
+            data=dados_excel_puros,
+            file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        st.caption("💡 *Clique no botão acima para baixar a planilha limpa com todos os pedidos prontos para importar no seu emissor de Notas.*")
+    else:
+        st.info("Nenhum pedido foi lançado no sistema ainda para faturar.")
+        
+    st.markdown("---")
+    op_dono = st.radio("Selecione a ação gerencial:", ["Alterar Preços e Estoques (Modo Planilha)", "Incluir Novo Produto", "Excluir Produto"], horizontal=True)
     
-    if op_dono == "Incluir Novo Produto":
-        st.subheader("➕ Adicionar Novo Item ao Catálogo")
-        with st.form("form_add_prod"):
-            p_nome = st.text_input("Nome do Produto:")
-            p_preco = st.number_input("Preço de Venda (R$):", min_value=0.1, value=10.0, step=0.5)
-            p_est = st.number_input("Estoque de Entrada (Fardos):", min_value=1, value=50, step=1)
-            p_desc = st.number_input("Desconto Máximo Autorizado para o Vendedor (%):", min_value=0.0, max_value=100.0, value=5.0, step=0.5)
-            btn_add = st.form_submit_button("💾 Gravar no Sistema")
-        if btn_add and p_nome.strip():
-            if p_nome.strip() in lista_produtos:
-                st.error("❌ Este produto já existe!")
-            else:
-                novo_p_df = pd.DataFrame([{"Produto": p_nome.strip(), "Preço": float(p_preco), "Estoque": int(p_est), "Desconto_Max": float(p_desc)}])
-                pd.concat([df_produtos, novo_p_df], ignore_index=True).to_excel(CAMINHO_PRODUTOS, index=False)
-                st.success(f"🎉 Item incluído!")
-                st.rerun()
-
-    elif op_dono == "Alterar Preço / Estoque / Desconto Max":
-        st.subheader("✏️ Atualizar Parâmetros de Venda")
+    if op_dono == "Alterar Preços e Estoques (Modo Planilha)":
