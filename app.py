@@ -8,13 +8,16 @@ st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout=
 
 st.title("🐯 Tigrão Distribuidora")
 
+# PARAMETRIZAÇÃO GERAL DO TIGRÃO
 PERCENTUAL_COMISSAO = 0.05  
-SENHA_EXCLUSIVA_NELSON = "TigraoNelson2026"  
+SENHA_EXCLUSIVA_NELSON = "TigraoNelson2026"  # <--- SUA SENHA DE DONO
 
+# Caminhos dos arquivos de banco de dados internos no servidor
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_CLIENTES = "clientes_banco.xlsx"
 CAMINHO_PRODUTOS = "produtos_banco.xlsx"
 
+# 1. INICIALIZAÇÃO DOS ARQUIVOS SE NÃO EXISTIREM
 if not os.path.exists(CAMINHO_PRODUTOS):
     pd.DataFrame([
         {"Produto": "Cerveja Lata 350ml (Fardo c/ 12)", "Preço": 36.00, "Estoque": 100, "Desconto_Max": 10.0},
@@ -24,13 +27,17 @@ if not os.path.exists(CAMINHO_PRODUTOS):
 
 if not os.path.exists(CAMINHO_CLIENTES):
     pd.DataFrame([
-        {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00", "Endereco": "Rua Principal, 100"},
-        {"Codigo": 2, "Nome": "Mercado do João", "CNPJ": "11.111.111/0001-11", "Endereco": "Av. Central, 500"}
+        {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00", "IE": "Isento", "Endereco": "Rua Principal, 100", "Telefone": "(11) 99999-9999"},
+        {"Codigo": 2, "Nome": "Mercado do João", "CNPJ": "11.111.111/0001-11", "IE": "123456789", "Endereco": "Av. Central, 500", "Telefone": "(11) 98888-8888"}
     ]).to_excel(CAMINHO_CLIENTES, index=False)
 
 if not os.path.exists(CAMINHO_VENDAS):
-    pd.DataFrame(columns=["Data_Hora", "Cliente", "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Pagamento", "Obs", "Status"]).to_excel(CAMINHO_VENDAS, index=False)
+    pd.DataFrame(columns=[
+        "Data_Hora", "Codigo_Cliente", "Cliente_Razao", "CNPJ", "IE", "Endereco", 
+        "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Pagamento", "Obs", "Status"
+    ]).to_excel(CAMINHO_VENDAS, index=False)
 
+# LEITURA CONSTANTE DOS BANCOS DE DADOS
 df_produtos = pd.read_excel(CAMINHO_PRODUTOS)
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
@@ -39,8 +46,14 @@ if "Desconto_Max" not in df_produtos.columns:
     df_produtos["Desconto_Max"] = 0.0
     df_produtos.to_excel(CAMINHO_PRODUTOS, index=False)
 
+# Garante compatibilidade de colunas na tabela de pedidos se for antiga
+if "Cliente_Razao" not in df_pedidos.columns and "Cliente" in df_pedidos.columns:
+    df_pedidos = df_pedidos.rename(columns={"Cliente": "Cliente_Razao"})
+
+# ABAS DE TRABALHO DO APP
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "📦 Consultar Pedidos", "💰 Comissões"])
 
+# --- ABA 1: PASSAR PEDIDO ---
 with tab1:
     st.subheader("1. Dados do Cliente")
     lista_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
@@ -59,12 +72,19 @@ with tab1:
         exibir_lista_cl = lista_cl_mostra if lista_cl_mostra else ["Nenhum cliente cadastrado"]
         cliente_final = st.selectbox("Selecione o cliente:", exibir_lista_cl)
         
+        # Criação das variáveis fiscais vazias por segurança
+        cod_c, cnpj_c, ie_c, end_c = "", "", "", ""
+        
         if cliente_final and cliente_final != "Nenhum cliente cadastrado":
             dados_filtrados = df_clientes[df_clientes["Nome"] == cliente_final]
             if not dados_filtrados.empty:
                 dados_c = dados_filtrados.iloc[0]
-                st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{int(dados_c['Codigo'])})")
-                st.caption(f"📌 **CNPJ:** {dados_c['CNPJ']} | **Endereço:** {dados_c['Endereco']}")
+                cod_c = dados_c['Codigo']
+                cnpj_c = dados_c['CNPJ']
+                ie_c = dados_c.get('IE', 'Isento')
+                end_c = dados_c['Endereco']
+                st.success(f"🟩 CLIENTE CONFIRMADO: {dados_c['Nome']} (COD-{int(cod_c)})")
+                st.caption(f"📌 **CNPJ:** {cnpj_c} | **IE:** {ie_c} | **Endereço:** {end_c}")
 
     st.markdown("---")
     st.subheader("2. Itens do Pedido")
@@ -118,7 +138,11 @@ with tab1:
             try:
                 novo_p = pd.DataFrame([{
                     "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "Cliente": cliente_final,
+                    "Codigo_Cliente": cod_c,
+                    "Cliente_Razao": cliente_final,
+                    "CNPJ": cnpj_c,
+                    "IE": ie_c,
+                    "Endereco": end_c,
                     "Produto": prod_selecionado,
                     "Quantidade": int(qtd),
                     "Desconto_Aplicado": f"{desconto_vendedor}%",
@@ -135,30 +159,38 @@ with tab1:
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
+# --- ABA 2: CADASTRAR CLIENTE ---
 with tab2:
     st.subheader("📝 Cadastrar Cliente")
     with st.form("form_vendedor_cliente"):
-        n_cli = st.text_input("Razão Social:")
+        n_cli = st.text_input("Razão Social / Nome Fantasia:")
         c_cli = st.text_input("CNPJ:")
-        e_cli = st.text_input("Endereço:")
+        i_cli = st.text_input("Inscrição Estadual (IE) / Se não tiver coloque 'Isento':", value="Isento")
+        e_cli = st.text_input("Endereço Completo:")
+        t_cli = st.text_input("Telefone:")
         btn_c = st.form_submit_button("💾 Salvar Cliente")
     if btn_c and n_cli.strip():
         prox_cod = int(df_clientes["Codigo"].max() + 1) if not df_clientes.empty else 1
-        pd.concat([df_clientes, pd.DataFrame([{"Codigo": prox_cod, "Nome": n_cli.strip(), "CNPJ": c_cli, "Endereco": e_cli}])], ignore_index=True).to_excel(CAMINHO_CLIENTES, index=False)
-        st.success("🎉 Cliente saved!")
+        pd.concat([df_clientes, pd.DataFrame([{"Codigo": prox_cod, "Nome": n_cli.strip(), "CNPJ": c_cli, "IE": i_cli, "Endereco": e_cli, "Telefone": t_cli}])], ignore_index=True).to_excel(CAMINHO_CLIENTES, index=False)
+        st.success("🎉 Cliente salvo com dados fiscais!")
         st.rerun()
 
+# --- ABA 3: CONSULTAR PEDIDOS ---
 with tab3:
     st.subheader("📦 Acompanhamento de Pedidos")
     if not df_pedidos.empty:
-        st.dataframe(df_pedidos[["Data_Hora", "Cliente", "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Status"]], use_container_width=True, hide_index=True)
+        st.dataframe(df_pedidos[["Data_Hora", "Cliente_Razao", "Produto", "Quantidade", "Desconto_Aplicado", "Total", "Status"]], use_container_width=True, hide_index=True)
 
+# --- ABA 4: COMISSÕES ---
 with tab4:
     st.subheader("💰 Suas Comissões")
     tot_v = df_pedidos["Total"].sum() if not df_pedidos.empty else 0.0
     st.metric("Volume Geral de Vendas", f"R$ {tot_v:.2f}")
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
+# ==============================================================================
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON)
+# ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
 acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dados:", type="password")
@@ -166,43 +198,9 @@ acesso_senha = st.text_input("Insira sua Senha de Dono para abrir o Banco de Dad
 if acesso_senha == SENHA_EXCLUSIVA_NELSON:
     st.success("👑 Autenticado! Painel de Controle do Tigrão Liberado.")
     
-    st.subheader("🚚 Exportar Vendas para Faturamento")
+    st.subheader("🚚 Exportar Vendas para o ADS TEC DISA")
     if not df_pedidos.empty:
         buffer_excel = io.BytesIO()
         with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
-            df_pedidos.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
-        dados_excel_puros = buffer_excel.getvalue()
-        
-        st.download_button(
-            label="📥 Baixar Planilha para Nota Fiscal (Excel .xlsx)",
-            data=dados_excel_puros,
-            file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    else:
-        st.info("Nenhum pedido foi lançado no sistema ainda para faturar.")
-        
-    st.markdown("---")
-    op_dono = st.radio("Selecione a ação gerencial:", ["Alterar Preços e Estoques (Modo Planilha)", "Incluir Novo Produto", "Excluir Produto"], horizontal=True)
-    
-    if op_dono == "Alterar Preços e Estoques (Modo Planilha)":
-        st.subheader("✏️ Alterar Preços Direto na Tabela (Estilo Excel)")
-        tabela_editavel = st.data_editor(
-            df_produtos[["Produto", "Preço", "Estoque", "Desconto_Max"]],
-            use_container_width=True,
-            hide_index=True,
-            disabled=["Produto"]
-        )
-        if st.button("💾 Salvar Alterações da Tabela"):
-            try:
-                tabela_editavel.to_excel(CAMINHO_PRODUTOS, index=False)
-                st.success("✅ Toda a tabela foi atualizada!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao salvar a tabela: {e}")
-
-    elif op_dono == "Incluir Novo Produto":
-        st.subheader("➕ Adicionar Novo Item ao Catálogo")
-        with st.form("form_add_prod"):
-            p_nome = st.text_input("Nome do Produto:")
-            p_preco = st.number_input("Preço de Venda (R$):", min_value=0.1, value=10.0, step=0.5)
+            # Exporta o layout com todas as colunas organizadas para importação no ERP
+            df_pedidos.to_excel(writer, index=False, sheet_name='DISA_Faturamento')
