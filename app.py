@@ -45,7 +45,7 @@ if "Desconto_Max" not in df_produtos.columns:
 # ABAS DE TRABALHO DO APP
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "📦 Consultar Pedidos", "💰 Comissões"])
 
-# --- ABA 1: PASSAR PEDIDO (CORRIGIDA E BLINDADA) ---
+# --- ABA 1: PASSAR PEDIDO ---
 with tab1:
     st.subheader("1. Dados do Cliente")
     lista_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
@@ -102,7 +102,6 @@ with tab1:
     except Exception:
         preco_un, estoque_un, qtd, total_pedido, desc_max_permitido, desconto_vendedor = 0.0, 1, 1, 0.0, 0.0, 0.0
 
-    # VALIDAÇÃO EM TEMPO REAL DO DESCONTO MÁXIMO
     estourou_limite = desconto_vendedor > desc_max_permitido
 
     if estourou_limite:
@@ -110,7 +109,6 @@ with tab1:
     else:
         st.write(f"💰 Total calculado com desconto: **R$ {total_pedido:.2f}**")
 
-    # Formulário para envio
     with st.form("form_pedido_venda"):
         forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix Tigrão", "Dinheiro"])
         obs = st.text_area("Observações")
@@ -118,7 +116,7 @@ with tab1:
 
     if btn_enviar:
         if estourou_limite:
-            st.error("❌ ERRO: O pedido não pode ser enviado porque o desconto ultrapassa o limite autorizado.")
+            st.error("❌ ERRO: O desconto ultrapassa o limite autorizado.")
         elif not cliente_final or cliente_final == "Nenhum cliente cadastrado" or prod_selecionado == "Nenhum produto":
             st.error("❌ ERRO: Selecione um cliente e um produto válidos.")
         else:
@@ -136,7 +134,7 @@ with tab1:
                 }])
                 df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
                 df_final.to_excel(CAMINHO_VENDAS, index=False)
-                st.success("✅ Pedido enviado perfeitamente dentro da margem de desconto!")
+                st.success("✅ Pedido enviado!")
                 st.balloons()
                 st.rerun()
             except Exception as e:
@@ -170,7 +168,7 @@ with tab4:
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
 # ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON)
+# 👑 CENTRAL EXCLUSIVA DO DONO (CORRIGIDA)
 # ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
@@ -196,3 +194,7 @@ if acesso_senha == SENHA_EXCLUSIVA_NELSON:
                 novo_p_df = pd.DataFrame([{"Produto": p_nome.strip(), "Preço": float(p_preco), "Estoque": int(p_est), "Desconto_Max": float(p_desc)}])
                 pd.concat([df_produtos, novo_p_df], ignore_index=True).to_excel(CAMINHO_PRODUTOS, index=False)
                 st.success(f"🎉 Item incluído!")
+                st.rerun()
+
+    elif op_dono == "Alterar Preço / Estoque / Desconto Max":
+        st.subheader("✏️ Atualizar Parâmetros de Venda")
