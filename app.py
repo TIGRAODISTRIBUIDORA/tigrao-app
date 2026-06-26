@@ -8,8 +8,8 @@ st.set_page_config(page_title="Tigrão Distribuidora", page_icon="🐯", layout=
 st.title("🐯 Tigrão Distribuidora")
 st.write("Painel do Vendedor - Sistema de Vendas")
 
-# CONFIGURAÇÃO DE PARAMETRIZAÇÃO
-PERCENTUAL_COMISSAO = 0.05  # 5% de comissão (Você pode alterar esse número quando quiser)
+# PARAMETRIZAÇÃO DE COMISSÃO (5%)
+PERCENTUAL_COMISSAO = 0.05  
 
 # Caminhos dos arquivos de dados na nuvem
 CAMINHO_EXCEL = "vendas_tigrao.xlsx"
@@ -26,10 +26,9 @@ if not os.path.exists(CAMINHO_CLIENTES_EXCEL):
 df_clientes_salvos = pd.read_excel(CAMINHO_CLIENTES_EXCEL)
 lista_nomes_clientes = df_clientes_salvos["Nome"].dropna().tolist()
 
-# 2. Inicialização do histórico de pedidos para evitar erros de leitura
+# 2. Gerenciamento da Planilha de Pedidos
 if os.path.exists(CAMINHO_EXCEL):
     df_pedidos = pd.read_excel(CAMINHO_EXCEL)
-    # Garante que a coluna Status existe caso seja uma planilha antiga
     if "Status" not in df_pedidos.columns:
         df_pedidos["Status"] = "Pendente"
         df_pedidos.to_excel(CAMINHO_EXCEL, index=False)
@@ -44,8 +43,13 @@ produtos_dados = {
 }
 df_produtos = pd.DataFrame(produtos_dados)
 
-# 4. Criação das Novas Abas no Aplicativo
-aba_pedido, aba_cadastro, aba_historico = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "📊 Histórico e Comissões"])
+# 4. Criação das 4 Abas do Aplicativo
+aba_pedido, aba_cadastro, aba_consulta, aba_comissoes = st.tabs([
+    "📋 Passar Pedido", 
+    "➕ Cadastrar Cliente", 
+    "🔍 Consultar Pedidos", 
+    "📊 Comissões"
+])
 
 # --- ABA 1: PASSAR PEDIDO ---
 with aba_pedido:
@@ -74,7 +78,7 @@ with aba_pedido:
         valor_final = preco_unitario * quantidade
         comissao_estimada = valor_final * PERCENTUAL_COMISSAO
         st.markdown(f"### 💰 Total do Pedido: **R$ {valor_final:.2f}**")
-        st.caption(f"⭐ *Comissão estimada deste pedido ({(PERCENTUAL_COMISSAO*100):.0f}%): R$ {comissao_estimada:.2f}*")
+        st.caption(f"⭐ *Comissão estimada deste pedido (5%): R$ {comissao_estimada:.2f}*")
         
         botao_enviar = st.form_submit_button("🚀 Enviar Pedido para o Tigrão")
 
@@ -88,15 +92,14 @@ with aba_pedido:
                 "Total": float(valor_final),
                 "Pagamento": forma_pagamento,
                 "Obs": observacao,
-                "Status": "Pendente"  # Todo pedido entra como Pendente inicialmente
+                "Status": "Pendente"
             }])
             
             df_final = pd.concat([df_pedidos, novo_pedido], ignore_index=True)
             df_final.to_excel(CAMINHO_EXCEL, index=False)
-            st.success(f"✅ Pedido gravado com sucesso! Status: PENDENTE")
+            st.success(f"✅ Pedido enviado com sucesso! Status inicial: PENDENTE")
             st.balloons()
             st.rerun()
-            
         except Exception as e:
             st.error(f"Erro ao salvar o pedido: {e}")
 
@@ -133,35 +136,53 @@ with aba_cadastro:
             except Exception as e:
                 st.error(f"Erro ao cadastrar cliente: {e}")
 
-# --- ABA 3: HISTÓRICO, STATUS E COMISSÕES ---
-with aba_historico:
-    st.subheader("📊 Relatório de Vendas e Acompanhamento")
+# --- ABA 3: CONSULTAR PEDIDOS (PENDENTES E FATURADOS) ---
+with aba_consulta:
+    st.subheader("🔍 Consulta e Acompanhamento de Pedidos")
     
     if not df_pedidos.empty:
-        # Indicadores financeiros consolidados na tela do vendedor
-        total_vendas_vendedor = df_pedidos["Total"].sum()
-        total_comissao_vendedor = total_vendas_vendedor * PERCENTUAL_COMISSAO
-        total_pedidos_vendedor = len(df_pedidos)
+        # Filtros de Status e Cliente lado a lado
+        col_filt1, col_filt2 = st.columns(2)
         
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Qtd Pedidos", f"{total_pedidos_vendedor}")
-        col2.metric("Total Vendido", f"R$ {total_vendas_vendedor:.2f}")
-        col3.metric("Sua Comissão (5%)", f"R$ {total_comissao_vendedor:.2f}", delta_color="inverse")
+        with col_filt1:
+            filtro_status = st.selectbox("Filtrar por Status", ["Todos os Pedidos", "Pendente", "Faturado", "Entregue"])
+        with col_filt2:
+            filtro_cliente = st.selectbox("Filtrar por Cliente", ["Todos os Clientes"] + lista_nomes_clientes)
         
-        st.markdown("---")
+        # Aplicação dos filtros na tabela
+        df_filtrado_consulta = df_pedidos.copy()
         
-        # Filtro de Busca de Clientes e Status para consulta rápida
-        st.write("🔍 **Consultar Pedidos Lançados**")
-        cliente_filtro = st.selectbox("Filtrar Histórico por Cliente (Opcional)", ["Todos"] + lista_nomes_clientes)
-        
-        df_filtrado = df_pedidos.copy()
-        if cliente_filtro != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["Cliente"] == cliente_filtro]
+        if filtro_status != "Todos os Pedidos":
+            df_filtrado_consulta = df_filtrado_consulta[df_filtrado_consulta["Status"] == filtro_status]
             
-        # Exibe a tabela detalhada com o status da entrega atualizado em tempo real
+        if filtro_cliente != "Todos os Clientes":
+            df_filtrado_consulta = df_filtrado_consulta[df_filtrado_consulta["Cliente"] == filtro_cliente]
+            
+        # Exibição dos resultados formatados
+        st.write(f"📋 Mostrando **{len(df_filtrado_consulta)}** registro(s):")
         st.dataframe(
-            df_filtrado[["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Status"]], 
+            df_filtrado_consulta[["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Status", "Pagamento", "Obs"]], 
             use_container_width=True
         )
     else:
-        st.info("ℹ️ Nenhum pedido foi lançado no sistema ainda.")
+        st.info("ℹ️ Nenhum pedido foi lançado no sistema até o momento.")
+
+# --- ABA 4: APENAS COMISSÕES ---
+with aba_comissoes:
+    st.subheader("📊 Extrato de Comissões do Vendedor")
+    
+    if not df_pedidos.empty:
+        total_vendas = df_pedidos["Total"].sum()
+        total_comissao = total_vendas * PERCENTUAL_COMISSAO
+        qtd_total_pedidos = len(df_pedidos)
+        
+        # Painel visual rápido com os ganhos do vendedor
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total de Pedidos", f"{qtd_total_pedidos}")
+        c2.metric("Volume de Vendas", f"R$ {total_vendas:.2f}")
+        c3.metric("Comissão a Receber (5%)", f"R$ {total_comissao:.2f}")
+        
+        st.markdown("---")
+        st.caption("💡 Nota: A comissão acima é calculada com base no valor bruto de todos os pedidos enviados.")
+    else:
+        st.info("ℹ️ Lance o seu primeiro pedido para começar a acumular comissões.")
