@@ -94,7 +94,7 @@ else:
         
     st.markdown("---")
 
-    # CARREGA AS PLANILHAS DE VENDAS E CLIENTES COM TRATAMENTO DE ERROS BLINDADO
+    # CARREGA AS PLANILHAS DE VENDAS E CLIENTES
     try:
         if not os.path.exists(CAMINHO_CLIENTES_EXCEL):
             clientes_iniciais = pd.DataFrame([
@@ -116,11 +116,11 @@ else:
     except Exception:
         df_pedidos = pd.DataFrame(columns=["Data_Hora", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Obs", "Status"])
 
-    # CATÁLOGO DE PRODUTOS
+    # CATÁLOGO DE PRODUTOS CORRIGIDO
     produtos_dados = {
         "Produto": ["Cerveja Lata 350ml (Fardo c/ 12)", "Refrigerante 2L (Fardo c/ 6)", "Água Mineral 500ml (Fardo c/ 12)", "Suco Caixa 1L (Caixa c/ 12)"],
         "Preço (R$)": [36.00, 48.00, 18.00, 60.00],
-        "Estoque": [500, 300, 1000, 250]
+        "Estoque": [100, 100, 100, 100]
     }
     df_produtos = pd.DataFrame(produtos_dados)
     lista_produtos_geral = df_produtos["Produto"].tolist()
@@ -134,14 +134,11 @@ else:
         "💰 Comissões"
     ])
 
-    # --- ABA 1: PASSAR PEDIDO (BUSCA TOTALMENTE BLINDADA) ---
+    # --- ABA 1: PASSAR PEDIDO ---
     with aba_pedido:
         st.subheader("1. Seleção do Cliente")
-        
-        # Entrada de texto limpa para o vendedor pesquisar livremente
         pesquisa_input = st.text_input("🔍 Digite o Nome ou o Código do cliente para buscar:")
         
-        # Filtra a lista sem gerar erros de execução no script
         if pesquisa_input and not df_clientes_salvos.empty:
             texto_busca = pesquisa_input.strip().lower()
             df_filtrado_cl = df_clientes_salvos[
@@ -153,12 +150,10 @@ else:
             
         lista_selectbox = df_filtrado_cl["Nome"].dropna().astype(str).tolist()
         
-        # Se a pesquisa falhar, exibe erro visual limpo em vez de erro de script
         if pesquisa_input and not lista_selectbox:
             st.error(f"❌ CLIENTE NÃO ENCONTRADO! Nenhuma empresa corresponde a '{pesquisa_input}'")
             cliente_final_nome = None
         else:
-            # Garante que a lista não venha vazia para o selectbox
             exibir_lista = lista_selectbox if lista_selectbox else ["Nenhum cliente disponível"]
             cliente_final_nome = st.selectbox("Selecione o cliente verificado na lista:", exibir_lista)
             
@@ -172,8 +167,6 @@ else:
 
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
-        
-        # Filtro de digitação seguro para os Produtos
         pesquisa_prod_input = st.text_input("🔍 Digite o nome do Produto para filtrar o catálogo:")
         
         if pesquisa_prod_input:
@@ -186,7 +179,6 @@ else:
             st.warning(f"⚠️ Nenhum produto encontrado com o nome '{pesquisa_prod_input}'. Mostrando catálogo completo.")
             lista_produtos_filtrados = lista_produtos_geral
 
-        # Formulário protegido do pedido
         with st.form("formulario_pedido"):
             produto_selecionado = st.selectbox("Selecione o Produto na lista filtrada:", lista_produtos_filtrados if lista_produtos_filtrados else ["Nenhum produto cadastrado"])
             
@@ -194,4 +186,15 @@ else:
                 preco_unitario = float(df_produtos.loc[df_produtos["Produto"] == produto_selecionado, "Preço (R$)"].values[0])
                 estoque_atual = int(df_produtos.loc[df_produtos["Produto"] == produto_selecionado, "Estoque"].values[0])
                 st.info(f"Preço Unitário: R$ {preco_unitario:.2f} | Estoque no Tigrão: {estoque_atual} fardos")
+                quantidade = st.number_input("Quantidade de Fardos/Caixas", min_value=1, max_value=max(1, estoque_atual), step=1)
+                valor_final = preco_unitario * quantidade
+            except Exception:
+                preco_unitario = 0.0
+                estoque_atual = 1
+                st.warning("⚠️ Selecione um produto válido.")
+                quantidade = 1
+                valor_final = 0.0
+            
+            st.subheader("3. Pagamento e Entrega")
+
 
