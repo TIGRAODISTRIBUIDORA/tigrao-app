@@ -37,7 +37,7 @@ if not os.path.exists(CAMINHO_CLIENTES):
 
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 
-# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS (COM COLUNAS DE STATUS E NFE)
+# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
 if not os.path.exists(CAMINHO_VENDAS):
     pd.DataFrame(columns=["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status", "Numero_NFe"]).to_excel(CAMINHO_VENDAS, index=False)
 
@@ -73,7 +73,7 @@ if st.session_state["vendedor_nome"] == "":
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
+                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
                 st.success("Dispositivo ativado com sucesso!")
                 st.rerun()
@@ -95,14 +95,13 @@ else:
     
     tab_pedido, tab_cadastro, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"])
 
-    # --- ABA 1: PASSAR PEDIDO (CORRIGIDA SEM ILOC) ---
+    # --- ABA 1: PASSAR PEDIDO ---
     with tab_pedido:
         st.subheader("1. Escolha o Cliente")
         lista_nomes_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
         cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
         
         if cliente_escolhido:
-            # Correção do erro: busca segura usando filtro direto do pandas
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
                 cod_c = dados_busca.iloc[0]["Codigo"]
@@ -134,7 +133,7 @@ else:
                 "Total": float(total_pedido),
                 "Pagamento": forma_pagto,
                 "Status": "Pendente",
-                "Numero_NFe": ""  # Linha nasce vazia para você preencher no faturamento
+                "Numero_NFe": ""
             }])
             df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
             df_final.to_excel(CAMINHO_VENDAS, index=False)
@@ -164,7 +163,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: RECEBIMENTO NELSON ---
+    # --- ABA 3: RECEBIMENTO NELSON (COM CENTRAL DE ALTERAÇÃO DE STATUS VIVA) ---
     with tab_recebimento:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
@@ -185,11 +184,15 @@ else:
             else:
                 df_pedidos_atualizado = df_pedidos
             
+            # Força o preenchimento de campos vazios para evitar erros na planilha
+            df_pedidos_atualizado["Status"] = df_pedidos_atualizado["Status"].fillna("Pendente")
+            df_pedidos_atualizado["Numero_NFe"] = df_pedidos_atualizado["Numero_NFe"].fillna("")
+            
             if not df_pedidos_atualizado.empty:
                 df_ordenado = df_pedidos_atualizado.sort_values(by="Data_Hora", ascending=False)
-                st.write(f"📢 Você tem **{len(df_ordenado[df_ordenado['Status']=='Pendente'])}** pedido(s) pendente(s) para faturar.")
                 
-                # Montagem das colunas com Status e Numero_NFe inclusos na exportação
+                # 1. BOTÃO DE DOWNLOAD DO EXCEL
+                st.subheader("📥 1. Baixar Planilha para o DISA")
                 df_disa_exportar = df_ordenado[["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status", "Numero_NFe"]]
                 
                 buffer = io.BytesIO()
@@ -203,8 +206,7 @@ else:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-                st.write("---")
-                st.write("📊 **Lista de Pedidos no Sistema:**")
-                st.dataframe(df_ordenado[["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Status", "Numero_NFe"]], use_container_width=True, hide_index=True)
-            else:
-                st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
+                st.markdown("---")
+                
+                # 2. TABELA INTERATIVA PARA LANÇAR "FATURADO" E O NÚMERO DA NF-E DIRETO NA TELA 📊
+                st.subheader("✏️ 2. Atualizar Status e Número da NF-e (Modo Planilha Viva)")
