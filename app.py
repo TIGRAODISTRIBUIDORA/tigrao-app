@@ -83,7 +83,7 @@ if st.session_state["vendedor_nome"] == "":
 # --- SISTEMA LIBERADO ---
 else:
     st.success(f"👤 CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
-    if st.button("🔄 Disconnect deste aparelho"):
+    if st.button("🔄 Desconectar deste aparelho"):
         st.session_state["vendedor_nome"] = ""
         st.session_state["vendedor_email"] = ""
         st.rerun()
@@ -101,7 +101,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
@@ -190,7 +190,7 @@ else:
             )
             st.markdown("---")
             
-            # 2. ENVIAR RETORNO DO RELATÓRIO DISA
+            # 2. ENVIAR RETORNO DO RELATÓRIO DISA (COM PAR DE INDENTAÇÃO CORRIGIDO)
             st.subheader("📤 2. Enviar Relatório de Retorno do DISA")
             st.write("Arraste ou selecione o relatório em Excel gerado pelo DISA. O aplicativo vai buscar as colunas 'DataFat', 'faturado' e 'nf' para atualizar o sistema.")
             
@@ -201,6 +201,5 @@ else:
                     df_disa_relatorio = pd.read_excel(arquivo_upload)
                     
                     if "DataFat" in df_disa_relatorio.columns and "faturado" in df_disa_relatorio.columns and "nf" in df_disa_relatorio.columns:
-                        # Processamento seguro fora do botão para garantir o alinhamento
                         df_disa_limpo = df_disa_relatorio[["DataFat", "faturado", "nf"]].copy()
                         
