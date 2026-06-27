@@ -190,7 +190,17 @@ else:
             )
             st.markdown("---")
             
-           
-                    
+            # 2. ENVIAR RETORNO DO RELATÓRIO DISA (REESTRUTURADO SEM TRY/EXCEPT EMBUTIDOS)
+            st.subheader("📤 2. Enviar Relatório de Retorno do DISA")
+            st.write("Arraste ou selecione o relatório em Excel gerado pelo DISA.")
+            
+            arquivo_upload = st.file_uploader("Selecione o Relatório DISA (.xlsx):", type=["xlsx"])
+            
+            if arquivo_upload is not None:
+                df_disa_relatorio = pd.read_excel(arquivo_upload)
                 
-                        
+                if "DataFat" in df_disa_relatorio.columns and "faturado" in df_disa_relatorio.columns and "nf" in df_disa_relatorio.columns:
+                    df_disa_limpo = df_disa_relatorio[["DataFat", "faturado", "nf"]].copy()
+                    
+                    if st.button("🔄 Confirmar Sincronização de Notas"):
+                        for idx, row in df_disa_limpo.iterrows():
