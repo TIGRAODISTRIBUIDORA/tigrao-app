@@ -82,7 +82,7 @@ if st.session_state["vendedor_nome"] == "":
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
+                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
                 st.success("Dispositivo ativado com sucesso!")
                 st.rerun()
@@ -113,7 +113,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
