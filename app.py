@@ -92,10 +92,11 @@ else:
     st.markdown("---")
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-    if is_admin:
+   if is_admin:
     tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"])
-    else:
+else:
     tab_pedido, tab_cadastro, tab_consulta_prod = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos"])
+
 
     cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
         
