@@ -71,7 +71,7 @@ if st.session_state["vendedor_nome"] == "":
             st.success("Dispositivo ativado com sucesso!")
             st.rerun()
         else:
-            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == Array[str]([senha_input.strip()]))]
+            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
                 st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
@@ -101,7 +101,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
@@ -111,7 +111,7 @@ else:
         preco_un = produtos_fixos[produto]
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
         quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
-        total_pedido = preco_un * quantidade
+        total_pedido = preco_un * quantity if 'quantity' in locals() else preco_un * quantidade
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
         
         forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix", "Dinheiro"])
@@ -202,4 +202,3 @@ else:
                     
                     if "DataFat" in df_disa_relatorio.columns and "faturado" in df_disa_relatorio.columns and "nf" in df_disa_relatorio.columns:
                         if st.button("🔄 Confirmar Sincronização de Notas"):
-                            df_disa_limpo = df_disa_relatorio[["DataFat", "faturado", "nf"]].copy()
