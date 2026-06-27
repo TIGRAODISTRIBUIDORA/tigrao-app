@@ -82,7 +82,7 @@ if st.session_state["vendedor_nome"] == "":
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
+                st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
                 st.success("Dispositivo ativado com sucesso!")
                 st.rerun()
@@ -100,7 +100,6 @@ else:
     st.markdown("---")
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-    # 🌟 NOVA INTRODUÇÃO: Adicionada a aba '🔍 Consultar Produtos' na lista oficial de abas
     tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs([
         "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"
     ])
@@ -114,7 +113,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
@@ -167,18 +166,16 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: 🔍 CONSULTAR PRODUTOS (NOVA INTRODUÇÃO TOTALMENTE ALINHADA) ---
+    # --- ABA 3: 🔍 CONSULTAR PRODUTOS ---
     with tab_consulta_prod:
         st.subheader("🔍 Catálogo e Tabela de Preços")
         st.write("Consulte a tabela oficial de valores de fardos para venda externa.")
         
-        # Converte o dicionário interno em uma tabela bonita e visual para o vendedor ler
         df_catalogo_visual = pd.DataFrame([
             {"🏷️ Nome do Produto": prod, "💰 Preço de Tabela (R$)": f"R$ {preco:.2f}"}
             for prod, preco in produtos_fixos.items()
         ])
         
-        # Campo opcional para o vendedor filtrar e buscar na lista por texto
         busca_prod_filtro = st.text_input("Filtrar produto por nome:")
         if busca_prod_filtro:
             df_catalogo_visual = df_catalogo_visual[df_catalogo_visual["🏷️ Nome do Produto"].str.contains(busca_prod_filtro, case=False, na=False)]
@@ -194,7 +191,7 @@ else:
             liberar_painel = True
             st.info("👑 Reconhecido como Diretor. Painel Liberado.")
         else:
-            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password", key="senha_ Nelson_receb_aba")
+            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password", key="senha_nelson_receb_aba")
             if senha_digitada == SENHA_NELSON_MESTRE:
                 liberar_painel = True
             elif senha_digitada != "":
@@ -210,3 +207,8 @@ else:
             st.subheader("📥 1. Baixar Planilha para o DISA")
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_ordenado.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
+            
+            st.download_button(
+                label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
+                data=buffer.getvalue(),
