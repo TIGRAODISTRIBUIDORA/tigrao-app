@@ -154,7 +154,7 @@ with tab1:
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
-# --- ABA 2: CADASTRAR CLIENTE (CORRIGIDA) ---
+# --- ABA 2: CADASTRAR CLIENTE ---
 with tab2:
     st.subheader("📝 Cadastrar Cliente")
     with st.form("form_vendedor_cliente"):
@@ -186,7 +186,7 @@ with tab4:
     st.metric("Comissão Acumulada (5%)", f"R$ {(tot_v * PERCENTUAL_COMISSAO):.2f}")
 
 # ==============================================================================
-# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON)
+# 👑 CENTRAL EXCLUSIVA DO DONO (NELSON) - PARÊNTESE CORRIGIDO
 # ==============================================================================
 st.markdown("---")
 st.write("🔒 **Painel de Controle Exclusivo da Diretoria**")
