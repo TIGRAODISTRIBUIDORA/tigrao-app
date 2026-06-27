@@ -203,12 +203,10 @@ else:
             df_pedidos_atualizado["nf"] = df_pedidos_atualizado["nf"].fillna("")
             df_ordenado = df_pedidos_atualizado.sort_values(by="DataFat", ascending=False)
             
-            # 1. DOWNLOAD DA PLANILHA PARA O DISA
+            # 1. DOWNLOAD DA PLANILHA PARA O DISA (Comando totalmente corrigido e fechado em uma linha)
             st.subheader("📥 1. Baixar Planilha para o DISA")
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_ordenado.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
+            dados_planilha = buffer.getvalue()
             
-            st.download_button(
-                label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
-                data=buffer.getvalue(),
