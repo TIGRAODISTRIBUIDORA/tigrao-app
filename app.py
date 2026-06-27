@@ -37,7 +37,7 @@ if not os.path.exists(CAMINHO_CLIENTES):
 
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 
-# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS COM CADASTRADO DISA REAL (DataFat, faturado, nf)
+# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
 if not os.path.exists(CAMINHO_VENDAS):
     pd.DataFrame(columns=["DataFat", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "faturado", "nf"]).to_excel(CAMINHO_VENDAS, index=False)
 
@@ -71,7 +71,7 @@ if st.session_state["vendedor_nome"] == "":
             st.success("Dispositivo ativado com sucesso!")
             st.rerun()
         else:
-            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
+            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == Array[str]([senha_input.strip()]))]
             if not usuario_validar.empty:
                 st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
@@ -118,7 +118,7 @@ else:
         
         if st.button("🚀 Enviar Pedido para a Central", key="btn_enviar_pedido_venda"):
             novo_p = pd.DataFrame([{
-                "DataFat": datetime.now().strftime("%d/%m/%Y"), # Alinhado com o DISA
+                "DataFat": datetime.now().strftime("%d/%m/%Y"),
                 "Vendedor": st.session_state["vendedor_nome"],
                 "Cliente": cliente_escolhido,
                 "Produto": produto,
@@ -155,7 +155,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: RECEBIMENTO NELSON (CRUZAMENTO SEGURO COM RELATÓRIO DISA) ---
+    # --- ABA 3: RECEBIMENTO NELSON ---
     with tab_recebimento:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
@@ -190,7 +190,7 @@ else:
             )
             st.markdown("---")
             
-            # 2. ENVIAR RETORNO DO RELATÓRIO DISA (Cruzamento Inteligente de 3 colunas)
+            # 2. ENVIAR RETORNO DO RELATÓRIO DISA
             st.subheader("📤 2. Enviar Relatório de Retorno do DISA")
             st.write("Arraste ou selecione o relatório em Excel gerado pelo DISA. O aplicativo vai buscar as colunas 'DataFat', 'faturado' e 'nf' para atualizar o sistema.")
             
@@ -200,4 +200,6 @@ else:
                 try:
                     df_disa_relatorio = pd.read_excel(arquivo_upload)
                     
-                    # Validação de segurança: Verifica se as colunas reais do print existem no arquivo enviado
+                    if "DataFat" in df_disa_relatorio.columns and "faturado" in df_disa_relatorio.columns and "nf" in df_disa_relatorio.columns:
+                        if st.button("🔄 Confirmar Sincronização de Notas"):
+                            df_disa_limpo = df_disa_relatorio[["DataFat", "faturado", "nf"]].copy()
