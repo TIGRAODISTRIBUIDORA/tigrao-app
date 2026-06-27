@@ -17,7 +17,6 @@ EMAIL_DONO = "sodemilecem23@gmail.com"
 
 # 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES
 if not os.path.exists(CAMINHO_USUARIOS):
-    # Cria a lista inicial com o seu acesso de administrador e os vendedores padrão
     pd.DataFrame([
         {"Email": EMAIL_DONO, "Senha": "123", "Nome": "Nelson Dono"},
         {"Email": "joaquim@tigrao.com", "Senha": "123", "Nome": "Joaquim Silva"},
@@ -33,7 +32,7 @@ if not os.path.exists(CAMINHO_VENDAS):
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# GERENCIAMENTO DE MEMÓRIA PERMANENTE DO LOGIN
+# GERENCIAMENTO DE SESSÃO DO LOGIN
 if "vendedor_nome" not in st.session_state:
     st.session_state["vendedor_nome"] = ""
 if "vendedor_email" not in st.session_state:
@@ -49,7 +48,6 @@ if st.session_state["vendedor_nome"] == "":
     
     if st.button("🚀 Ativar Aplicativo neste Celular"):
         email_limpo = email_input.strip().lower()
-        # Valida as credenciais direto na planilha de usuários gerenciável
         usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
         
         if not usuario_validar.empty:
@@ -71,18 +69,16 @@ else:
         
     st.markdown("---")
 
-    # DEFINE AS ABAS DISPONÍVEIS DINAMICAMENTE
+    # CRIAÇÃO DAS VARIÁVEIS DE ABAS SEPARADAS E INDEPENDENTES
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
-    abas_titulos = ["📋 Passar Pedido", "👑 Recebimento Nelson (Central)"]
     
-    # SE FOR O NELSON LOGADO, ADICIONA A ABA SECRETA DE GERENCIAR EQUIPE 👑
     if is_admin:
-        abas_titulos.append("👥 Gestão da Equipe")
-        
-    abas = st.tabs(abas_titulos)
+        tab1, tab2, tab3 = st.tabs(["📋 Passar Pedido", "👑 Recebimento Nelson (Central)", "👥 Gestão da Equipe"])
+    else:
+        tab1, tab2 = st.tabs(["📋 Passar Pedido", "👑 Recebimento Nelson (Central)"])
 
-    # --- ABA 1: PASSAR PEDIDO ---
-    with abas[0]:
+    # --- ABA 1: PASSAR PEDIDO (CORRIGIDA) ---
+    with tab1:
         st.subheader("📋 Lançar Novo Pedido")
         cliente = st.selectbox("Selecione o Cliente:", ["Supermercado Silva", "Mercado do João", "Conveniência Central"])
         
@@ -98,7 +94,7 @@ else:
         
         forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix", "Dinheiro"])
         
-        if st.button("🚀 Enviar Pedido para a Central"):
+        if st.button("🚀 Enviar Pedido para a Central", key="btn_enviar_pedido_venda"):
             novo_p = pd.DataFrame([{
                 "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
                 "Vendedor": st.session_state["vendedor_nome"],
@@ -115,16 +111,19 @@ else:
             st.balloons()
             st.rerun()
 
-    # --- ABA 2: RECEBIMENTO NELSON ---
-    with abas[1]:
+    # --- ABA 2: RECEBIMENTO NELSON (CORRIGIDA) ---
+    with tab2:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         senha_digitada = st.text_input("Digite a Senha de Dono:", type="password", key="senha_receb_nelson")
         
         if senha_digitada == SENHA_NELSON:
             st.success("Acesso Liberado!")
             
-            if not df_pedidos.empty:
-                df_ordenado = df_pedidos.sort_values(by="Data_Hora", ascending=False)
+            # Recarrega a planilha atualizada da nuvem
+            df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS)
+            
+            if not df_pedidos_atualizado.empty:
+                df_ordenado = df_pedidos_atualizado.sort_values(by="Data_Hora", ascending=False)
                 st.write(f"📢 Você tem **{len(df_ordenado[df_ordenado['Status']=='Pendente'])}** pedido(s) pendente(s) para faturar no DISA.")
                 
                 buffer = io.BytesIO()
@@ -135,7 +134,8 @@ else:
                     label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
                     data=buffer.getvalue(),
                     file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="btn_download_excel_nelson"
                 )
                 
                 st.write("---")
@@ -143,12 +143,11 @@ else:
             else:
                 st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
 
-    # --- ABA 3: 👥 GESTÃO DA EQUIPE (SÓ ABRE PARA O ADMIN) ---
+    # --- ABA 3: 👥 GESTÃO DA EQUIPE (CORRIGIDA) ---
     if is_admin:
-        with abas[2]:
+        with tab3:
             st.subheader("👑 Controle de Vendedores do Tigrão")
             
-            # Formulário para cadastrar funcionário novo
             st.write("➕ **Adicionar Novo Vendedor no Sistema:**")
             with st.form("form_add_vendedor"):
                 v_nome = st.text_input("Nome Completo do Vendedor:")
@@ -162,15 +161,14 @@ else:
                     st.error("❌ Este e-mail de vendedor já está cadastrado!")
                 else:
                     novo_u_df = pd.DataFrame([{"Email": email_l_novo, "Senha": v_senha.strip(), "Nome": v_nome.strip()}])
-                    pd.concat([df_usuarios, novo_u_df], ignore_index=True).to_excel(CAMINHO_USUARIOS, index=False)
-                    st.success(f"🎉 Vendedor '{v_nome}' cadastrado com sucesso! Ele já pode logar na rua.")
+                    df_usuarios_atualizado = pd.concat([df_usuarios, novo_u_df], ignore_index=True)
+                    df_usuarios_atualizado.to_excel(CAMINHO_USUARIOS, index=False)
+                    st.success(f"🎉 Vendedor '{v_nome}' cadastrado com sucesso!")
                     st.rerun()
             
             st.markdown("---")
-            
-            # Formulário para excluir funcionário antigo
             st.write("🗑️ **Excluir Vendedor do Sistema:**")
-            lista_emails_excluir = [e for e in df_usuarios["Email"].tolist() if e != EMAIL_DONO] # Impede você de excluir a si mesmo
+            lista_emails_excluir = [e for e in df_usuarios["Email"].tolist() if e != EMAIL_DONO]
             
             if lista_emails_excluir:
                 email_deletar = st.selectbox("Selecione o e-mail do funcionário que deseja remover:", lista_emails_excluir)
