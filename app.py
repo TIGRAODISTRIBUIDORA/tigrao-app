@@ -190,15 +190,7 @@ else:
             )
             st.markdown("---")
             
-            # 2. ENVIAR RETORNO DO RELATÓRIO DISA (COM PAR DE INDENTAÇÃO CORRIGIDO)
-            st.subheader("📤 2. Enviar Relatório de Retorno do DISA")
-            st.write("Arraste ou selecione o relatório em Excel gerado pelo DISA. O aplicativo vai buscar as colunas 'DataFat', 'faturado' e 'nf' para atualizar o sistema.")
-            
-            arquivo_upload = st.file_uploader("Selecione o Relatório DISA (.xlsx):", type=["xlsx"])
-            
-            if arquivo_upload is not None:
-                try:
-                    df_disa_relatorio = pd.read_excel(arquivo_upload)
+           
                     
                 
                         
