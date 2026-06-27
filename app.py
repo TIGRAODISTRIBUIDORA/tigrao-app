@@ -304,3 +304,205 @@ else:
                 use_container_width=True,
                 hide_index=True
             )
+with tab3:
+        st.subheader("🔒 Painel de Recebimento de Pedidos")
+
+        liberar_painel = False
+
+        if is_admin:
+            liberar_painel = True
+            st.info("👑 Reconhecido como Diretor. Senha interna dispensada.")
+        else:
+            senha_digitada = st.text_input(
+                "Digite a Senha Master da Empresa:",
+                type="password",
+                key="campo_senha_master_nelson"
+            )
+
+            if senha_digitada == SENHA_NELSON_MESTRE:
+                liberar_painel = True
+            elif senha_digitada != "":
+                st.error("❌ Senha master incorreta.")
+
+        if liberar_painel:
+            df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS)
+
+            if not df_pedidos_atualizado.empty:
+                df_ordenado = df_pedidos_atualizado.sort_values(
+                    by="Numero_Pedido",
+                    ascending=False
+                )
+
+                pendentes = len(df_ordenado[df_ordenado["Status"] == "Pendente"])
+
+                st.write(f"📢 Você tem **{pendentes}** pedido(s) pendente(s) para faturar no DISA.")
+
+                buffer = io.BytesIO()
+
+                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                    df_ordenado.to_excel(writer, index=False, sheet_name="Pedidos_Faturamento")
+
+                st.download_button(
+                    label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
+                    data=buffer.getvalue(),
+                    file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="btn_download_excel_nelson"
+                )
+
+                st.write("---")
+
+                st.dataframe(
+                    df_ordenado[[
+                        "Numero_Pedido",
+                        "Data_Hora",
+                        "Vendedor",
+                        "Cliente",
+                        "Produto",
+                        "Quantidade",
+                        "Total",
+                        "Pagamento",
+                        "Status",
+                        "Numero_NF",
+                        "Data_Faturamento"
+                    ]],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
+
+    if is_admin:
+        with tab4:
+            st.subheader("📤 Retorno do Faturamento")
+
+            st.write("Aqui você sobe de volta a planilha Excel depois que faturar no DISA.")
+
+            st.info("A planilha precisa ter pelo menos as colunas: Numero_Pedido, Status e Numero_NF.")
+
+            arquivo_retorno = st.file_uploader(
+                "📎 Enviar planilha de retorno do faturamento:",
+                type=["xlsx"]
+            )
+
+            if arquivo_retorno is not None:
+                try:
+                    df_retorno = pd.read_excel(arquivo_retorno)
+
+                    st.write("Pré-visualização da planilha enviada:")
+                    st.dataframe(df_retorno, use_container_width=True, hide_index=True)
+
+                    colunas_obrigatorias = ["Numero_Pedido", "Status"]
+
+                    faltando = [
+                        col for col in colunas_obrigatorias
+                        if col not in df_retorno.columns
+                    ]
+
+                    if faltando:
+                        st.error(f"❌ Faltam colunas obrigatórias: {faltando}")
+                    else:
+                        if st.button("✅ Atualizar Status dos Pedidos"):
+                            df_base = pd.read_excel(CAMINHO_VENDAS)
+
+                            atualizados = 0
+
+                            for _, linha in df_retorno.iterrows():
+                                numero = str(linha["Numero_Pedido"]).strip()
+
+                                if numero in df_base["Numero_Pedido"].astype(str).values:
+                                    idx = df_base[
+                                        df_base["Numero_Pedido"].astype(str) == numero
+                                    ].index
+
+                                    df_base.loc[idx, "Status"] = str(linha["Status"]).strip()
+
+                                    if "Numero_NF" in df_retorno.columns:
+                                        df_base.loc[idx, "Numero_NF"] = str(linha["Numero_NF"]).strip()
+
+                                    if "Data_Faturamento" in df_retorno.columns:
+                                        df_base.loc[idx, "Data_Faturamento"] = str(linha["Data_Faturamento"]).strip()
+                                    else:
+                                        if str(linha["Status"]).strip().lower() == "faturado":
+                                            df_base.loc[idx, "Data_Faturamento"] = datetime.now().strftime("%d/%m/%Y")
+
+                                    if "Observacao" in df_retorno.columns:
+                                        df_base.loc[idx, "Observacao"] = str(linha["Observacao"]).strip()
+
+                                    atualizados += 1
+
+                            df_base.to_excel(CAMINHO_VENDAS, index=False)
+
+                            st.success(f"✅ {atualizados} pedido(s) atualizado(s) com sucesso!")
+                            st.rerun()
+
+                except Exception as e:
+                    st.error(f"Erro ao ler a planilha: {e}")
+
+        with tab5:
+            st.subheader("👑 Controle de Vendedores do Tigrão")
+
+            st.write("➕ **Adicionar Novo Vendedor no Sistema:**")
+
+            with st.form("form_add_vendedor"):
+                v_nome = st.text_input("Nome Completo do Vendedor:")
+                v_email = st.text_input("E-mail de Login:")
+                v_senha = st.text_input("Senha Inicial:")
+                btn_v = st.form_submit_button("💾 Salvar Novo Vendedor")
+
+            if btn_v and v_nome.strip() and v_email.strip() and v_senha.strip():
+                email_l_novo = v_email.strip().lower()
+
+                if email_l_novo in df_usuarios["Email"].astype(str).str.lower().tolist():
+                    st.error("❌ Este e-mail de vendedor já está cadastrado!")
+                else:
+                    novo_u_df = pd.DataFrame([{
+                        "Email": email_l_novo,
+                        "Senha": v_senha.strip(),
+                        "Nome": v_nome.strip()
+                    }])
+
+                    df_usuarios_atualizado = pd.concat(
+                        [df_usuarios, novo_u_df],
+                        ignore_index=True
+                    )
+
+                    df_usuarios_atualizado.to_excel(CAMINHO_USUARIOS, index=False)
+
+                    st.success(f"🎉 Vendedor '{v_nome}' cadastrado com sucesso!")
+                    st.rerun()
+
+            st.markdown("---")
+            st.write("🗑️ **Excluir Vendedor do Sistema:**")
+
+            lista_emails_excluir = [
+                e for e in df_usuarios["Email"].tolist()
+                if str(e).lower() != EMAIL_DONO
+            ]
+
+            if lista_emails_excluir:
+                email_deletar = st.selectbox(
+                    "Selecione o e-mail do funcionário que deseja remover:",
+                    lista_emails_excluir
+                )
+
+                if st.button("❌ Confirmar Exclusão Definitiva"):
+                    df_usuarios_novos = df_usuarios[
+                        df_usuarios["Email"] != email_deletar
+                    ]
+
+                    df_usuarios_novos.to_excel(CAMINHO_USUARIOS, index=False)
+
+                    st.success("🗑️ Funcionário removido do banco de dados com sucesso!")
+                    st.rerun()
+            else:
+                st.info("Nenhum vendedor cadastrado para remoção.")
+
+            st.markdown("---")
+            st.write("📋 **Lista de Vendedores Cadastrados no Banco:**")
+
+            st.dataframe(
+                df_usuarios[["Nome", "Email", "Senha"]],
+                use_container_width=True,
+                hide_index=True
+            )
