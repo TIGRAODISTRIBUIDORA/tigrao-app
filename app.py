@@ -43,23 +43,20 @@ if not os.path.exists(CAMINHO_VENDAS):
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# 🛠️ CORREÇÃO CIRÚRGICA DE COMPATIBILIDADE (Evita o erro KeyError da imagem)
-# Se a planilha antiga tiver cabeçalhos antigos, renomeia de forma segura
-if "Data_Hora" in df_pedidos.columns:
-    df_pedidos = df_pedidos.rename(columns={"Data_Hora": "DataFat"})
-if "Status" in df_pedidos.columns:
-    df_pedidos = df_pedidos.rename(columns={"Status": "faturado"})
-if "Numero_NFe" in df_pedidos.columns:
-    df_pedidos = df_pedidos.rename(columns={"Numero_NFe": "nf"})
+# Compatibilidade de cabeçalhos antigos de faturamento
+if "Data_Hora" in df_pedidos.columns: df_pedidos = df_pedidos.rename(columns={"Data_Hora": "DataFat"})
+if "Status" in df_pedidos.columns: df_pedidos = df_pedidos.rename(columns={"Status": "faturado"})
+if "Numero_NFe" in df_pedidos.columns: df_pedidos = df_pedidos.rename(columns={"Numero_NFe": "nf"})
 
-# Garante de forma forçada que as colunas novas existam na memória para não dar erro
-if "faturado" not in df_pedidos.columns: 
-    df_pedidos["faturado"] = "Pendente"
-if "nf" not in df_pedidos.columns: 
-    df_pedidos["nf"] = ""
+if "faturado" not in df_pedidos.columns: df_pedidos["faturado"] = "Pendente"
+if "nf" not in df_pedidos.columns: df_pedidos["nf"] = ""
 
-# Salva a planilha já corrigida para alinhar o banco de dados interno
-df_pedidos.to_excel(CAMINHO_VENDAS, index=False)
+# TABELA FIXA DE PRODUTOS PADRÃO DO SISTEMA
+produtos_fixos = {
+    "Bananada Natural (Fardo)": 36.00, 
+    "Cerveja Lata 350ml (Fardo)": 42.00, 
+    "Refrigerante 2L (Fardo)": 48.00
+}
 
 # Gerenciamento de sessão de login permanente
 if "vendedor_nome" not in st.session_state:
@@ -80,12 +77,12 @@ if st.session_state["vendedor_nome"] == "":
         if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
             st.session_state["vendedor_nome"] = "Nelson Dono"
             st.session_state["vendedor_email"] = EMAIL_DONO
-            st.success("Dispositivo activated!")
+            st.success("Dispositivo ativado!")
             st.rerun()
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
+                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
                 st.success("Dispositivo ativado com sucesso!")
                 st.rerun()
@@ -103,8 +100,10 @@ else:
     st.markdown("---")
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-    # Três abas limpas, diretas e estruturadas
-    tab_pedido, tab_cadastro, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"])
+    # 🌟 NOVA INTRODUÇÃO: Adicionada a aba '🔍 Consultar Produtos' na lista oficial de abas
+    tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs([
+        "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"
+    ])
 
     # --- ABA 1: PASSAR PEDIDO ---
     with tab_pedido:
@@ -115,15 +114,10 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
-        produtos_fixos = {
-            "Bananada Natural (Fardo)": 36.00, 
-            "Cerveja Lata 350ml (Fardo)": 42.00, 
-            "Refrigerante 2L (Fardo)": 48.00
-        }
         produto = st.selectbox("Selecione o Produto:", list(produtos_fixos.keys()))
         
         preco_un = produtos_fixos[produto]
@@ -173,7 +167,25 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: RECEBIMENTO NELSON ---
+    # --- ABA 3: 🔍 CONSULTAR PRODUTOS (NOVA INTRODUÇÃO TOTALMENTE ALINHADA) ---
+    with tab_consulta_prod:
+        st.subheader("🔍 Catálogo e Tabela de Preços")
+        st.write("Consulte a tabela oficial de valores de fardos para venda externa.")
+        
+        # Converte o dicionário interno em uma tabela bonita e visual para o vendedor ler
+        df_catalogo_visual = pd.DataFrame([
+            {"🏷️ Nome do Produto": prod, "💰 Preço de Tabela (R$)": f"R$ {preco:.2f}"}
+            for prod, preco in produtos_fixos.items()
+        ])
+        
+        # Campo opcional para o vendedor filtrar e buscar na lista por texto
+        busca_prod_filtro = st.text_input("Filtrar produto por nome:")
+        if busca_prod_filtro:
+            df_catalogo_visual = df_catalogo_visual[df_catalogo_visual["🏷️ Nome do Produto"].str.contains(busca_prod_filtro, case=False, na=False)]
+            
+        st.dataframe(df_catalogo_visual, use_container_width=True, hide_index=True)
+
+    # --- ABA 4: RECEBIMENTO NELSON ---
     with tab_recebimento:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
@@ -182,7 +194,7 @@ else:
             liberar_painel = True
             st.info("👑 Reconhecido como Diretor. Painel Liberado.")
         else:
-            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password")
+            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password", key="senha_ Nelson_receb_aba")
             if senha_digitada == SENHA_NELSON_MESTRE:
                 liberar_painel = True
             elif senha_digitada != "":
@@ -190,8 +202,6 @@ else:
         
         if liberar_painel:
             df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS) if os.path.exists(CAMINHO_VENDAS) else df_pedidos
-            
-            # Filtro de limpeza para evitar campos vazios na listagem
             df_pedidos_atualizado["faturado"] = df_pedidos_atualizado["faturado"].fillna("Pendente")
             df_pedidos_atualizado["nf"] = df_pedidos_atualizado["nf"].fillna("")
             df_ordenado = df_pedidos_atualizado.sort_values(by="DataFat", ascending=False)
@@ -200,15 +210,3 @@ else:
             st.subheader("📥 1. Baixar Planilha para o DISA")
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df_ordenado.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
-            
-            st.download_button(
-                label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
-                data=buffer.getvalue(),
-                file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-            st.markdown("---")
-            # 2. VISUALIZAÇÃO E EDIÇÃO MANUAL DA PLANILHA VIVA NA TELA
-            st.subheader("📊 2. Histórico e Faturamento Gerencial")
