@@ -200,6 +200,5 @@ else:
                 try:
                     df_disa_relatorio = pd.read_excel(arquivo_upload)
                     
-                    if "DataFat" in df_disa_relatorio.columns and "faturado" in df_disa_relatorio.columns and "nf" in df_disa_relatorio.columns:
-                        df_disa_limpo = df_disa_relatorio[["DataFat", "faturado", "nf"]].copy()
+                
                         
