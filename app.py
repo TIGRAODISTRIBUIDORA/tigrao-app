@@ -43,9 +43,23 @@ if not os.path.exists(CAMINHO_VENDAS):
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# Garante compatibilidade das colunas exigidas para a Nota Fiscal
-if "faturado" not in df_pedidos.columns: df_pedidos["faturado"] = "Pendente"
-if "nf" not in df_pedidos.columns: df_pedidos["nf"] = ""
+# 🛠️ CORREÇÃO CIRÚRGICA DE COMPATIBILIDADE (Evita o erro KeyError da imagem)
+# Se a planilha antiga tiver cabeçalhos antigos, renomeia de forma segura
+if "Data_Hora" in df_pedidos.columns:
+    df_pedidos = df_pedidos.rename(columns={"Data_Hora": "DataFat"})
+if "Status" in df_pedidos.columns:
+    df_pedidos = df_pedidos.rename(columns={"Status": "faturado"})
+if "Numero_NFe" in df_pedidos.columns:
+    df_pedidos = df_pedidos.rename(columns={"Numero_NFe": "nf"})
+
+# Garante de forma forçada que as colunas novas existam na memória para não dar erro
+if "faturado" not in df_pedidos.columns: 
+    df_pedidos["faturado"] = "Pendente"
+if "nf" not in df_pedidos.columns: 
+    df_pedidos["nf"] = ""
+
+# Salva a planilha já corrigida para alinhar o banco de dados interno
+df_pedidos.to_excel(CAMINHO_VENDAS, index=False)
 
 # Gerenciamento de sessão de login permanente
 if "vendedor_nome" not in st.session_state:
@@ -66,7 +80,7 @@ if st.session_state["vendedor_nome"] == "":
         if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
             st.session_state["vendedor_nome"] = "Nelson Dono"
             st.session_state["vendedor_email"] = EMAIL_DONO
-            st.success("Dispositivo ativado com sucesso!")
+            st.success("Dispositivo activated!")
             st.rerun()
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
@@ -89,7 +103,7 @@ else:
     st.markdown("---")
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-    # Três abas limpas, diretas e 100% testadas
+    # Três abas limpas, diretas e estruturadas
     tab_pedido, tab_cadastro, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"])
 
     # --- ABA 1: PASSAR PEDIDO ---
@@ -176,6 +190,8 @@ else:
         
         if liberar_painel:
             df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS) if os.path.exists(CAMINHO_VENDAS) else df_pedidos
+            
+            # Filtro de limpeza para evitar campos vazios na listagem
             df_pedidos_atualizado["faturado"] = df_pedidos_atualizado["faturado"].fillna("Pendente")
             df_pedidos_atualizado["nf"] = df_pedidos_atualizado["nf"].fillna("")
             df_ordenado = df_pedidos_atualizado.sort_values(by="DataFat", ascending=False)
@@ -196,18 +212,3 @@ else:
             st.markdown("---")
             # 2. VISUALIZAÇÃO E EDIÇÃO MANUAL DA PLANILHA VIVA NA TELA
             st.subheader("📊 2. Histórico e Faturamento Gerencial")
-            st.write("💡 *Mude de 'Pendente' para 'Faturado' ou digite a NF diretamente na tabela abaixo e clique em salvar.*")
-            
-            tabela_faturamento = st.data_editor(
-                df_ordenado,
-                use_container_width=True,
-                hide_index=True,
-                disabled=["DataFat", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento"]
-            )
-            if st.button("💾 Salvar Alterações Gerenciais"):
-                try:
-                    tabela_faturamento.to_excel(CAMINHO_VENDAS, index=False)
-                    st.success("✅ Histórico de faturamento updated no banco de dados!")
-                    st.rerun()
-                except Exception:
-                    st.error("Erro ao salvar.")
