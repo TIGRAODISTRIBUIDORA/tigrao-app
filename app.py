@@ -37,13 +37,13 @@ if not os.path.exists(CAMINHO_CLIENTES):
 
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 
-# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
+# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS (COM COLUNAS DE STATUS E NFE)
 if not os.path.exists(CAMINHO_VENDAS):
     pd.DataFrame(columns=["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status", "Numero_NFe"]).to_excel(CAMINHO_VENDAS, index=False)
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# Garante que a coluna Numero_NFe existe no arquivo atual
+# Garante que a coluna Numero_NFe existe no arquivo atual do faturamento
 if "Numero_NFe" not in df_pedidos.columns:
     df_pedidos["Numero_NFe"] = ""
     df_pedidos.to_excel(CAMINHO_VENDAS, index=False)
@@ -68,14 +68,14 @@ if st.session_state["vendedor_nome"] == "":
         if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
             st.session_state["vendedor_nome"] = "Nelson Dono"
             st.session_state["vendedor_email"] = EMAIL_DONO
-            st.success("Dispositivo ativado com sucesso para Nelson Dono!")
+            st.success("Dispositivo ativado com sucesso!")
             st.rerun()
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
+                st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
-                st.success(f"Dispositivo ativado com sucesso!")
+                st.success("Dispositivo ativado com sucesso!")
                 st.rerun()
             else:
                 st.error("❌ E-mail ou Senha incorretos.")
@@ -95,15 +95,19 @@ else:
     
     tab_pedido, tab_cadastro, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"])
 
-    # --- ABA 1: PASSAR PEDIDO ---
+    # --- ABA 1: PASSAR PEDIDO (CORRIGIDA SEM ILOC) ---
     with tab_pedido:
         st.subheader("1. Escolha o Cliente")
         lista_nomes_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
         cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
         
         if cliente_escolhido:
-            linha_c = df_clientes[df_clientes["Nome"] == cliente_escolhido].iloc
-            st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(linha_c['Codigo'])} | CNPJ: {linha_c['CNPJ']}")
+            # Correção do erro: busca segura usando filtro direto do pandas
+            dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
+            if not dados_busca.empty:
+                cod_c = dados_busca.iloc[0]["Codigo"]
+                cnpj_c = dados_busca.iloc[0]["CNPJ"]
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(cod_c)} | CNPJ: {cnpj_c}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
@@ -130,7 +134,7 @@ else:
                 "Total": float(total_pedido),
                 "Pagamento": forma_pagto,
                 "Status": "Pendente",
-                "Numero_NFe": ""  # Nasce vazio para faturar depois
+                "Numero_NFe": ""  # Linha nasce vazia para você preencher no faturamento
             }])
             df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
             df_final.to_excel(CAMINHO_VENDAS, index=False)
@@ -141,7 +145,6 @@ else:
     # --- ABA 2: CADASTRAR CLIENTE ---
     with tab_cadastro:
         st.subheader("➕ Cadastro de Novo Cliente Comercial")
-        
         with st.form("form_novo_cliente_rua"):
             razao_social = st.text_input("Razão Social / Nome Fantasia da Empresa:")
             cnpj_digitado = st.text_input("CNPJ do Cliente:")
@@ -161,7 +164,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: RECEBIMENTO NELSON (COM COLUNA DE NOTA FISCAL ADICIONADA) ---
+    # --- ABA 3: RECEBIMENTO NELSON ---
     with tab_recebimento:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
@@ -186,7 +189,7 @@ else:
                 df_ordenado = df_pedidos_atualizado.sort_values(by="Data_Hora", ascending=False)
                 st.write(f"📢 Você tem **{len(df_ordenado[df_ordenado['Status']=='Pendente'])}** pedido(s) pendente(s) para faturar.")
                 
-                # Ajuste cirúrgico: Garante a ordem exata das colunas incluindo o Status e Numero_NFe no final
+                # Montagem das colunas com Status e Numero_NFe inclusos na exportação
                 df_disa_exportar = df_ordenado[["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status", "Numero_NFe"]]
                 
                 buffer = io.BytesIO()
