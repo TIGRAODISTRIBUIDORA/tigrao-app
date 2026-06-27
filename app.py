@@ -9,15 +9,12 @@ st.set_page_config(page_title="Tigrão - Bloco Pedidos", page_icon="🐯", layou
 st.title("🐯 Tigrão Distribuidora")
 st.write("### 📦 Bloco 1: Gestão e Faturamento de Pedidos")
 
-# Configurações do Banco de Dados Local do Bloco 1
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_USUARIOS = "usuarios_banco.xlsx"
 
-# CONFIGURAÇÕES DE SEGURANÇA FIXAS
 SENHA_NELSON_MESTRE = "TigraoNelson2026"
 EMAIL_DONO = "sodemilecem23@gmail.com"
 
-# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES
 if not os.path.exists(CAMINHO_USUARIOS):
     pd.DataFrame([
         {"Email": EMAIL_DONO, "Senha": "123", "Nome": "Nelson Dono"},
@@ -28,79 +25,105 @@ if not os.path.exists(CAMINHO_USUARIOS):
 
 df_usuarios = pd.read_excel(CAMINHO_USUARIOS)
 
-# 2. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
 if not os.path.exists(CAMINHO_VENDAS):
-    pd.DataFrame(columns=["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status"]).to_excel(CAMINHO_VENDAS, index=False)
+    pd.DataFrame(columns=[
+        "Data_Hora", "Vendedor", "Cliente", "Produto",
+        "Quantidade", "Total", "Pagamento", "Status"
+    ]).to_excel(CAMINHO_VENDAS, index=False)
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# GERENCIAMENTO DE SESSÃO DO LOGIN
 if "vendedor_nome" not in st.session_state:
     st.session_state["vendedor_nome"] = ""
+
 if "vendedor_email" not in st.session_state:
     st.session_state["vendedor_email"] = ""
 
-# --- TELA DE ATIVAÇÃO ÚNICA ---
+produtos_fixos = {
+    "Bananada Natural (Fardo)": 36.00,
+    "Cerveja Lata 350ml (Fardo)": 42.00,
+    "Refrigerante 2L (Fardo)": 48.00
+}
+
 if st.session_state["vendedor_nome"] == "":
     st.subheader("🔐 Ativação Única do Aplicativo")
     st.write("Insira seu e-mail e senha corporativa para liberar o aparelho.")
-    
+
     email_input = st.text_input("E-mail do Vendedor:")
     senha_input = st.text_input("Senha de Acesso:", type="password")
-    
+
     if st.button("🚀 Ativar Aplicativo neste Celular"):
         email_limpo = email_input.strip().lower()
-        
-        if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
-            st.session_state["vendedor_nome"] = "Nelson Dono"
-            st.session_state["vendedor_email"] = EMAIL_DONO
-            st.success("Dispositivo ativado com sucesso para Nelson Dono!")
+        senha_limpa = senha_input.strip()
+
+        usuario_validar = df_usuarios[
+            (df_usuarios["Email"].astype(str).str.lower() == email_limpo) &
+            (df_usuarios["Senha"].astype(str) == senha_limpa)
+        ]
+
+        if not usuario_validar.empty:
+            st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
+            st.session_state["vendedor_email"] = email_limpo
+            st.success(f"Dispositivo ativado com sucesso para {st.session_state['vendedor_nome']}!")
             st.rerun()
         else:
-            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
-            if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
-                st.session_state["vendedor_email"] = email_limpo
-                st.success(f"Dispositivo ativado com sucesso para {st.session_state['vendedor_nome']}!")
-                st.rerun()
-            else:
-                st.error("❌ E-mail ou Senha incorretos. Verifique com a administração do Tigrão.")
+            st.error("❌ E-mail ou Senha incorretos. Verifique com a administração do Tigrão.")
 
-# --- SISTEMA LIBERADO ---
 else:
     st.success(f"👤 CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
-    
+
     if st.button("🔄 Desconectar deste aparelho"):
         st.session_state["vendedor_nome"] = ""
         st.session_state["vendedor_email"] = ""
         st.rerun()
-        
+
     st.markdown("---")
 
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
-    
-    if is_admin:
-        tab1, tab2, tab3 = st.tabs(["📋 Passar Pedido", "👑 Recebimento Nelson (Central)", "👥 Gestão da Equipe"])
-    else:
-        tab1, tab2 = st.tabs(["📋 Passar Pedido", "👑 Recebimento Nelson (Central)"])
 
-    # --- ABA 1: PASSAR PEDIDO ---
+    if is_admin:
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📋 Passar Pedido",
+            "🔎 Consultar Produto",
+            "👑 Recebimento Nelson",
+            "👥 Gestão da Equipe"
+        ])
+    else:
+        tab1, tab2, tab3 = st.tabs([
+            "📋 Passar Pedido",
+            "🔎 Consultar Produto",
+            "👑 Recebimento Nelson"
+        ])
+
     with tab1:
         st.subheader("📋 Lançar Novo Pedido")
-        cliente = st.selectbox("Selecione o Cliente:", ["Supermercado Silva", "Mercado do João", "Conveniência Central"])
-        
-        produtos_fixos = {"Bananada Natural (Fardo)": 36.00, "Cerveja Lata 350ml (Fardo)": 42.00, "Refrigerante 2L (Fardo)": 48.00}
+
+        cliente = st.selectbox(
+            "Selecione o Cliente:",
+            ["Supermercado Silva", "Mercado do João", "Conveniência Central"]
+        )
+
         produto = st.selectbox("Selecione o Produto:", list(produtos_fixos.keys()))
-        
+
         preco_un = produtos_fixos[produto]
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
-        
-        quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
-        total_pedido = preco_un * quantity if 'quantity' in locals() else preco_un * quantidade
+
+        quantidade = st.number_input(
+            "Quantidade de Fardos:",
+            min_value=1,
+            value=1,
+            step=1
+        )
+
+        total_pedido = preco_un * quantidade
+
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
-        
-        forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix", "Dinheiro"])
-        
+
+        forma_pagto = st.selectbox(
+            "Forma de Pagamento:",
+            ["Boleto 30 dias", "Pix", "Dinheiro"]
+        )
+
         if st.button("🚀 Enviar Pedido para a Central", key="btn_enviar_pedido_venda"):
             novo_p = pd.DataFrame([{
                 "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -112,43 +135,80 @@ else:
                 "Pagamento": forma_pagto,
                 "Status": "Pendente"
             }])
-            df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
+
+            df_pedidos_atual = pd.read_excel(CAMINHO_VENDAS)
+            df_final = pd.concat([df_pedidos_atual, novo_p], ignore_index=True)
             df_final.to_excel(CAMINHO_VENDAS, index=False)
+
             st.success("✅ Pedido gravado no Excel com sucesso!")
             st.balloons()
             st.rerun()
 
-    # --- ABA 2: RECEBIMENTO NELSON (AJUSTADA: LOGIN AUTOMÁTICO SE FOR O DONO) ---
     with tab2:
+        st.subheader("🔎 Consultar Produto")
+
+        pesquisa_produto = st.text_input("Digite o nome do produto:")
+
+        if pesquisa_produto.strip():
+            termo = pesquisa_produto.strip().lower()
+
+            resultados = {
+                nome: preco
+                for nome, preco in produtos_fixos.items()
+                if termo in nome.lower()
+            }
+
+            if resultados:
+                for nome, preco in resultados.items():
+                    st.success(f"📦 {nome}")
+                    st.write(f"💰 Preço do fardo: **R$ {preco:.2f}**")
+                    st.markdown("---")
+            else:
+                st.warning("Nenhum produto encontrado.")
+        else:
+            st.info("Digite parte do nome do produto para pesquisar.")
+
+    with tab3:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
-        
-        # Se for você (Nelson), o sistema já libera tudo direto sem perguntar nada! 👑
+
         liberar_painel = False
+
         if is_admin:
             liberar_painel = True
             st.info("👑 Reconhecido como Diretor. Senha interna dispensada.")
         else:
-            # Se for outro funcionário tentando entrar, ele ainda precisa digitar a senha de segurança
-            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password", key="campo_senha_master_nelson")
+            senha_digitada = st.text_input(
+                "Digite a Senha Master da Empresa:",
+                type="password",
+                key="campo_senha_master_nelson"
+            )
+
             if senha_digitada == SENHA_NELSON_MESTRE:
                 liberar_painel = True
             elif senha_digitada != "":
                 st.error("❌ Senha master incorreta.")
-        
+
         if liberar_painel:
             if os.path.exists(CAMINHO_VENDAS):
                 df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS)
             else:
-                df_pedidos_atualizado = df_pedidos
-            
+                df_pedidos_atualizado = pd.DataFrame()
+
             if not df_pedidos_atualizado.empty:
-                df_ordenado = df_pedidos_atualizado.sort_values(by="Data_Hora", ascending=False)
-                st.write(f"📢 Você tem **{len(df_ordenado[df_ordenado['Status']=='Pendente'])}** pedido(s) pendente(s) para faturar no DISA.")
-                
+                df_ordenado = df_pedidos_atualizado.sort_values(
+                    by="Data_Hora",
+                    ascending=False
+                )
+
+                pendentes = len(df_ordenado[df_ordenado["Status"] == "Pendente"])
+
+                st.write(f"📢 Você tem **{pendentes}** pedido(s) pendente(s) para faturar no DISA.")
+
                 buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_ordenado.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
-                
+
+                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                    df_ordenado.to_excel(writer, index=False, sheet_name="Pedidos_Faturamento")
+
                 st.download_button(
                     label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
                     data=buffer.getvalue(),
@@ -156,49 +216,91 @@ else:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="btn_download_excel_nelson"
                 )
-                
+
                 st.write("---")
-                st.dataframe(df_ordenado[["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Status"]], use_container_width=True, hide_index=True)
+
+                st.dataframe(
+                    df_ordenado[[
+                        "Data_Hora",
+                        "Vendedor",
+                        "Cliente",
+                        "Produto",
+                        "Quantidade",
+                        "Total",
+                        "Pagamento",
+                        "Status"
+                    ]],
+                    use_container_width=True,
+                    hide_index=True
+                )
             else:
                 st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
 
-    # --- ABA 3: GESTÃO DA EQUIPE ---
     if is_admin:
-        with tab3:
+        with tab4:
             st.subheader("👑 Controle de Vendedores do Tigrão")
-            
+
             st.write("➕ **Adicionar Novo Vendedor no Sistema:**")
+
             with st.form("form_add_vendedor"):
                 v_nome = st.text_input("Nome Completo do Vendedor:")
                 v_email = st.text_input("E-mail de Login:")
                 v_senha = st.text_input("Senha Inicial:")
                 btn_v = st.form_submit_button("💾 Salvar Novo Vendedor")
-                
-            if btn_v and v_nome.strip() and v_email.strip():
+
+            if btn_v and v_nome.strip() and v_email.strip() and v_senha.strip():
                 email_l_novo = v_email.strip().lower()
+
                 if email_l_novo in df_usuarios["Email"].astype(str).str.lower().tolist():
                     st.error("❌ Este e-mail de vendedor já está cadastrado!")
                 else:
-                    novo_u_df = pd.DataFrame([{"Email": email_l_novo, "Senha": v_senha.strip(), "Nome": v_nome.strip()}])
-                    df_usuarios_atualizado = pd.concat([df_usuarios, novo_u_df], ignore_index=True)
+                    novo_u_df = pd.DataFrame([{
+                        "Email": email_l_novo,
+                        "Senha": v_senha.strip(),
+                        "Nome": v_nome.strip()
+                    }])
+
+                    df_usuarios_atualizado = pd.concat(
+                        [df_usuarios, novo_u_df],
+                        ignore_index=True
+                    )
+
                     df_usuarios_atualizado.to_excel(CAMINHO_USUARIOS, index=False)
+
                     st.success(f"🎉 Vendedor '{v_nome}' cadastrado com sucesso!")
                     st.rerun()
-            
+
             st.markdown("---")
             st.write("🗑️ **Excluir Vendedor do Sistema:**")
-            lista_emails_excluir = [e for e in df_usuarios["Email"].tolist() if e != EMAIL_DONO]
-            
+
+            lista_emails_excluir = [
+                e for e in df_usuarios["Email"].tolist()
+                if str(e).lower() != EMAIL_DONO
+            ]
+
             if lista_emails_excluir:
-                email_deletar = st.selectbox("Selecione o e-mail do funcionário que deseja remover:", lista_emails_excluir)
+                email_deletar = st.selectbox(
+                    "Selecione o e-mail do funcionário que deseja remover:",
+                    lista_emails_excluir
+                )
+
                 if st.button("❌ Confirmar Exclusão Definitiva"):
-                    df_usuarios_novos = df_usuarios[df_usuarios["Email"] != email_deletar]
+                    df_usuarios_novos = df_usuarios[
+                        df_usuarios["Email"] != email_deletar
+                    ]
+
                     df_usuarios_novos.to_excel(CAMINHO_USUARIOS, index=False)
+
                     st.success("🗑️ Funcionário removido do banco de dados com sucesso!")
                     st.rerun()
             else:
                 st.info("Nenhum vendedor cadastrado para remoção.")
-                
+
             st.markdown("---")
             st.write("📋 **Lista de Vendedores Cadastrados no Banco:**")
-            st.dataframe(df_usuarios[["Nome", "Email", "Senha"]], use_container_width=True, hide_index=True)
+
+            st.dataframe(
+                df_usuarios[["Nome", "Email", "Senha"]],
+                use_container_width=True,
+                hide_index=True
+            )
