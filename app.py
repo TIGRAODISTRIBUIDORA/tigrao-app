@@ -12,7 +12,7 @@ st.write("### 📦 Painel Integrado de Vendas e Cadastro")
 # Configurações do Banco de Dados Local do Bloco 1 e 2
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_USUARIOS = "usuarios_banco.xlsx"
-CAMINHO_CLIENTES = "clientes_banco.xlsx"  # <--- Nova Planilha do Bloco de Clientes
+CAMINHO_CLIENTES = "clientes_banco.xlsx"
 
 # CONFIGURAÇÕES DE SEGURANÇA FIXAS
 SENHA_NELSON_MESTRE = "TigraoNelson2026"
@@ -28,7 +28,7 @@ if not os.path.exists(CAMINHO_USUARIOS):
 
 df_usuarios = pd.read_excel(CAMINHO_USUARIOS)
 
-# 2. INICIALIZAÇÃO DO BANCO DE DADOS DE CLIENTES (NOVO)
+# 2. INICIALIZAÇÃO DO BANCO DE DADOS DE CLIENTES
 if not os.path.exists(CAMINHO_CLIENTES):
     pd.DataFrame([
         {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00"},
@@ -68,7 +68,7 @@ if st.session_state["vendedor_nome"] == "":
         else:
             usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
             if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
+                st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
                 st.success(f"Dispositivo ativado com sucesso para {st.session_state['vendedor_nome']}!")
                 st.rerun()
@@ -93,18 +93,15 @@ else:
     if is_admin:
         abas_titulos.append("👥 Gestão da Equipe")
         
-    tab_pedido, tab_cadastro, tab_recebimento, *tab_extra = st.tabs(abas_titulos)
-    tab_equipe = tab_extra[0] if tab_extra else None
+    abas = st.tabs(abas_titulos)
 
     # --- ABA 1: PASSAR PEDIDO ---
-    with tab_pedido:
+    with abas[0]:
         st.subheader("1. Escolha o Cliente")
         
-        # Puxa dinamicamente os clientes cadastrados no banco de dados real
         lista_nomes_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
         cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
         
-        # Validação na tela para o vendedor conferir o CNPJ antes de vender
         if cliente_escolhido:
             linha_c = df_clientes[df_clientes["Nome"] == cliente_escolhido].iloc[0]
             st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(linha_c['Codigo'])} | CNPJ: {linha_c['CNPJ']}")
@@ -141,8 +138,8 @@ else:
             st.balloons()
             st.rerun()
 
-    # --- ABA 2: ➕ CADASTRAR CLIENTE (NOVA INTRODUÇÃO SEGUIDA À RISCA) ---
-    with tab_cadastro:
+    # --- ABA 2: ➕ CADASTRAR CLIENTE ---
+    with abas[1]:
         st.subheader("➕ Cadastro de Novo Cliente Comercial")
         
         with st.form("form_novo_cliente_rua"):
@@ -155,9 +152,7 @@ else:
                 st.error("❌ Este cliente já está cadastrado no sistema!")
             else:
                 try:
-                    # Calcula o próximo código sequencial de forma automática
                     proximo_cod = int(df_clientes["Codigo"].max() + 1) if not df_clientes.empty else 1
-                    
                     novo_cl_df = pd.DataFrame([{"Codigo": proximo_cod, "Nome": razao_social.strip(), "CNPJ": cnpj_digitado.strip()}])
                     df_clientes_atualizado = pd.concat([df_clientes, novo_cl_df], ignore_index=True)
                     df_clientes_atualizado.to_excel(CAMINHO_CLIENTES, index=False)
@@ -168,7 +163,7 @@ else:
                     st.error(f"Erro ao salvar cliente: {e}")
 
     # --- ABA 3: RECEBIMENTO NELSON ---
-    with tab_recebimento:
+    with abas[2]:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
         liberar_painel = False
@@ -209,6 +204,15 @@ else:
             else:
                 st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
 
-    # --- ABA 4: GESTÃO DA EQUIPE ---
-    if is_admin and tab_equipe:
-        with tab_equipe:
+    # --- ABA 4: GESTÃO DA EQUIPE (CORRIGIDA E ALINHADA) ---
+    if is_admin and len(abas) > 3:
+        with abas[3]:
+            st.subheader("👑 Controle de Vendedores do Tigrão")
+            
+            with st.form("form_add_vendedor"):
+                v_nome = st.text_input("Nome Completo do Vendedor:")
+                v_email = st.text_input("E-mail de Login:")
+                v_senha = st.text_input("Senha Inicial:")
+                btn_v = st.form_submit_button("💾 Salvar Novo Vendedor")
+                
+            if btn_v and v_nome.strip() and v_email.strip():
