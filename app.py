@@ -37,16 +37,17 @@ if not os.path.exists(CAMINHO_CLIENTES):
 
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 
-# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
+# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS COM CADASTRADO DISA REAL (DataFat, faturado, nf)
 if not os.path.exists(CAMINHO_VENDAS):
-    pd.DataFrame(columns=["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status", "Numero_NFe"]).to_excel(CAMINHO_VENDAS, index=False)
+    pd.DataFrame(columns=["DataFat", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "faturado", "nf"]).to_excel(CAMINHO_VENDAS, index=False)
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# Garante que a coluna Numero_NFe existe no arquivo atual do faturamento
-if "Numero_NFe" not in df_pedidos.columns:
-    df_pedidos["Numero_NFe"] = ""
-    df_pedidos.to_excel(CAMINHO_VENDAS, index=False)
+# Correção automática de cabeçalho para bases antigas ficarem idênticas ao DISA
+mapa_colunas = {"Data_Hora": "DataFat", "Status": "faturado", "Numero_NFe": "nf"}
+df_pedidos = df_pedidos.rename(columns=mapa_colunas)
+if "faturado" not in df_pedidos.columns: df_pedidos["faturado"] = "Pendente"
+if "nf" not in df_pedidos.columns: df_pedidos["nf"] = ""
 
 # Gerenciamento de sessão de login permanente
 if "vendedor_nome" not in st.session_state:
@@ -64,7 +65,6 @@ if st.session_state["vendedor_nome"] == "":
     
     if st.button("🚀 Ativar Aplicativo neste Celular"):
         email_limpo = email_input.strip().lower()
-        
         if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
             st.session_state["vendedor_nome"] = "Nelson Dono"
             st.session_state["vendedor_email"] = EMAIL_DONO
@@ -83,16 +83,13 @@ if st.session_state["vendedor_nome"] == "":
 # --- SISTEMA LIBERADO ---
 else:
     st.success(f"👤 CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
-    
     if st.button("🔄 Desconectar deste aparelho"):
         st.session_state["vendedor_nome"] = ""
         st.session_state["vendedor_email"] = ""
         st.rerun()
         
     st.markdown("---")
-
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
-    
     tab_pedido, tab_cadastro, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"])
 
     # --- ABA 1: PASSAR PEDIDO ---
@@ -104,19 +101,15 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                cod_c = dados_busca.iloc[0]["Codigo"]
-                cnpj_c = dados_busca.iloc[0]["CNPJ"]
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(cod_c)} | CNPJ: {cnpj_c}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
-        
         produtos_fixos = {"Bananada Natural (Fardo)": 36.00, "Cerveja Lata 350ml (Fardo)": 42.00, "Refrigerante 2L (Fardo)": 48.00}
         produto = st.selectbox("Selecione o Produto:", list(produtos_fixos.keys()))
         
         preco_un = produtos_fixos[produto]
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
-        
         quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
         total_pedido = preco_un * quantidade
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
@@ -125,15 +118,15 @@ else:
         
         if st.button("🚀 Enviar Pedido para a Central", key="btn_enviar_pedido_venda"):
             novo_p = pd.DataFrame([{
-                "Data_Hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                "DataFat": datetime.now().strftime("%d/%m/%Y"), # Alinhado com o DISA
                 "Vendedor": st.session_state["vendedor_nome"],
                 "Cliente": cliente_escolhido,
                 "Produto": produto,
                 "Quantidade": int(quantidade),
                 "Total": float(total_pedido),
                 "Pagamento": forma_pagto,
-                "Status": "Pendente",
-                "Numero_NFe": ""
+                "faturado": "Pendente",
+                "nf": ""
             }])
             df_final = pd.concat([df_pedidos, novo_p], ignore_index=True)
             df_final.to_excel(CAMINHO_VENDAS, index=False)
@@ -156,14 +149,13 @@ else:
                 try:
                     proximo_cod = int(df_clientes["Codigo"].max() + 1) if not df_clientes.empty else 1
                     novo_cl_df = pd.DataFrame([{"Codigo": proximo_cod, "Nome": razao_social.strip(), "CNPJ": cnpj_digitado.strip()}])
-                    df_clientes_atualizado = pd.concat([df_clientes, novo_cl_df], ignore_index=True)
-                    df_clientes_atualizado.to_excel(CAMINHO_CLIENTES, index=False)
+                    pd.concat([df_clientes, novo_cl_df], ignore_index=True).to_excel(CAMINHO_CLIENTES, index=False)
                     st.success(f"🎉 Cliente '{razao_social}' cadastrado com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: RECEBIMENTO NELSON (COM CENTRAL DE ALTERAÇÃO DE STATUS VIVA) ---
+    # --- ABA 3: RECEBIMENTO NELSON (CRUZAMENTO SEGURO COM RELATÓRIO DISA) ---
     with tab_recebimento:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
@@ -179,34 +171,33 @@ else:
                 st.error("❌ Senha master incorreta.")
         
         if liberar_painel:
-            if os.path.exists(CAMINHO_VENDAS):
-                df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS)
-            else:
-                df_pedidos_atualizado = df_pedidos
+            df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS) if os.path.exists(CAMINHO_VENDAS) else df_pedidos
+            df_pedidos_atualizado["faturado"] = df_pedidos_atualizado["faturado"].fillna("Pendente")
+            df_pedidos_atualizado["nf"] = df_pedidos_atualizado["nf"].fillna("")
+            df_ordenado = df_pedidos_atualizado.sort_values(by="DataFat", ascending=False)
             
-            # Força o preenchimento de campos vazios para evitar erros na planilha
-            df_pedidos_atualizado["Status"] = df_pedidos_atualizado["Status"].fillna("Pendente")
-            df_pedidos_atualizado["Numero_NFe"] = df_pedidos_atualizado["Numero_NFe"].fillna("")
+            # 1. DOWNLOAD DA PLANILHA BASE
+            st.subheader("📥 1. Baixar Planilha para o DISA")
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_ordenado.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
             
-            if not df_pedidos_atualizado.empty:
-                df_ordenado = df_pedidos_atualizado.sort_values(by="Data_Hora", ascending=False)
-                
-                # 1. BOTÃO DE DOWNLOAD DO EXCEL
-                st.subheader("📥 1. Baixar Planilha para o DISA")
-                df_disa_exportar = df_ordenado[["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "Status", "Numero_NFe"]]
-                
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_disa_exportar.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
-                
-                st.download_button(
-                    label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
-                    data=buffer.getvalue(),
-                    file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                
-                st.markdown("---")
-                
-                # 2. TABELA INTERATIVA PARA LANÇAR "FATURADO" E O NÚMERO DA NF-E DIRETO NA TELA 📊
-                st.subheader("✏️ 2. Atualizar Status e Número da NF-e (Modo Planilha Viva)")
+            st.download_button(
+                label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
+                data=buffer.getvalue(),
+                file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            st.markdown("---")
+            
+            # 2. ENVIAR RETORNO DO RELATÓRIO DISA (Cruzamento Inteligente de 3 colunas)
+            st.subheader("📤 2. Enviar Relatório de Retorno do DISA")
+            st.write("Arraste ou selecione o relatório em Excel gerado pelo DISA. O aplicativo vai buscar as colunas 'DataFat', 'faturado' e 'nf' para atualizar o sistema.")
+            
+            arquivo_upload = st.file_uploader("Selecione o Relatório DISA (.xlsx):", type=["xlsx"])
+            
+            if arquivo_upload is not None:
+                try:
+                    df_disa_relatorio = pd.read_excel(arquivo_upload)
+                    
+                    # Validação de segurança: Verifica se as colunas reais do print existem no arquivo enviado
