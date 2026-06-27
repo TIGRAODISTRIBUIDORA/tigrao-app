@@ -94,10 +94,15 @@ else:
     
     tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs([
         "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"
-    ])
+       if is_admin:
+        tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs([
+            "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"
+        ])
+    else:
+        tab_pedido, tab_cadastro, tab_consulta_prod = st.tabs([
+            "📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos"
+        ])
 
-    # --- ABA 1: PASSAR PEDIDO ---
-    with tab_pedido:
         st.subheader("1. Escolha o Cliente")
         lista_nomes_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
         cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
