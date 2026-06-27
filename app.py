@@ -83,7 +83,7 @@ if st.session_state["vendedor_nome"] == "":
 # --- SISTEMA LIBERADO ---
 else:
     st.success(f"👤 CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
-    if st.button("🔄 Desconectar deste aparelho"):
+    if st.button("🔄 Disconnect deste aparelho"):
         st.session_state["vendedor_nome"] = ""
         st.session_state["vendedor_email"] = ""
         st.rerun()
@@ -111,7 +111,7 @@ else:
         preco_un = produtos_fixos[produto]
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
         quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
-        total_pedido = preco_un * quantity if 'quantity' in locals() else preco_un * quantidade
+        total_pedido = preco_un * quantidade
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
         
         forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix", "Dinheiro"])
@@ -201,4 +201,6 @@ else:
                     df_disa_relatorio = pd.read_excel(arquivo_upload)
                     
                     if "DataFat" in df_disa_relatorio.columns and "faturado" in df_disa_relatorio.columns and "nf" in df_disa_relatorio.columns:
-                        if st.button("🔄 Confirmar Sincronização de Notas"):
+                        # Processamento seguro fora do botão para garantir o alinhamento
+                        df_disa_limpo = df_disa_relatorio[["DataFat", "faturado", "nf"]].copy()
+                        
