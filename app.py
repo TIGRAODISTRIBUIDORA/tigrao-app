@@ -12,7 +12,9 @@ st.write("### 📦 Bloco 1: Gestão e Faturamento de Pedidos")
 # Configurações do Banco de Dados Local do Bloco 1
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_USUARIOS = "usuarios_banco.xlsx"
-SENHA_NELSON = "TigraoNelson2026"
+
+# CONFIGURAÇÕES DE SEGURANÇA FIXAS
+SENHA_NELSON_MESTRE = "TigraoNelson2026"
 EMAIL_DONO = "sodemilecem23@gmail.com"
 
 # 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES
@@ -38,7 +40,7 @@ if "vendedor_nome" not in st.session_state:
 if "vendedor_email" not in st.session_state:
     st.session_state["vendedor_email"] = ""
 
-# --- TELA DE ATIVAÇÃO ÚNICA (SÓ MOSTRA SE O CELULAR ESTIVER DESCONECTADO) ---
+# --- TELA DE ATIVAÇÃO ÚNICA ---
 if st.session_state["vendedor_nome"] == "":
     st.subheader("🔐 Ativação Única do Aplicativo")
     st.write("Insira seu e-mail e senha corporativa para liberar o aparelho.")
@@ -48,19 +50,25 @@ if st.session_state["vendedor_nome"] == "":
     
     if st.button("🚀 Ativar Aplicativo neste Celular"):
         email_limpo = email_input.strip().lower()
-        usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
         
-        if not usuario_validar.empty:
-            st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
-            st.session_state["vendedor_email"] = email_limpo
-            st.success(f"Dispositivo ativado com sucesso para {st.session_state['vendedor_nome']}!")
+        if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
+            st.session_state["vendedor_nome"] = "Nelson Dono"
+            st.session_state["vendedor_email"] = EMAIL_DONO
+            st.success("Dispositivo ativado com sucesso para Nelson Dono!")
             st.rerun()
         else:
-            st.error("❌ E-mail ou Senha incorretos. Verifique com a administração do Tigrão.")
+            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
+            if not usuario_validar.empty:
+                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
+                st.session_state["vendedor_email"] = email_limpo
+                st.success(f"Dispositivo ativado com sucesso para {st.session_state['vendedor_nome']}!")
+                st.rerun()
+            else:
+                st.error("❌ E-mail ou Senha incorretos. Verifique com a administração do Tigrão.")
 
-# --- SISTEMA LIBERADO (CELULAR JÁ LEMBRA QUEM É O VENDEDOR) ---
+# --- SISTEMA LIBERADO ---
 else:
-    st.success(f"👤 VENDEDOR CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
+    st.success(f"👤 CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
     
     if st.button("🔄 Desconectar deste aparelho"):
         st.session_state["vendedor_nome"] = ""
@@ -69,7 +77,6 @@ else:
         
     st.markdown("---")
 
-    # CRIAÇÃO DAS VARIÁVEIS DE ABAS SEPARADAS E INDEPENDENTES
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
     if is_admin:
@@ -77,7 +84,7 @@ else:
     else:
         tab1, tab2 = st.tabs(["📋 Passar Pedido", "👑 Recebimento Nelson (Central)"])
 
-    # --- ABA 1: PASSAR PEDIDO (CORRIGIDA) ---
+    # --- ABA 1: PASSAR PEDIDO ---
     with tab1:
         st.subheader("📋 Lançar Novo Pedido")
         cliente = st.selectbox("Selecione o Cliente:", ["Supermercado Silva", "Mercado do João", "Conveniência Central"])
@@ -89,7 +96,7 @@ else:
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
         
         quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
-        total_pedido = preco_un * quantidade
+        total_pedido = preco_un * quantity if 'quantity' in locals() else preco_un * quantidade
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
         
         forma_pagto = st.selectbox("Forma de Pagamento:", ["Boleto 30 dias", "Pix", "Dinheiro"])
@@ -111,16 +118,28 @@ else:
             st.balloons()
             st.rerun()
 
-    # --- ABA 2: RECEBIMENTO NELSON (CORRIGIDA) ---
+    # --- ABA 2: RECEBIMENTO NELSON (AJUSTADA: LOGIN AUTOMÁTICO SE FOR O DONO) ---
     with tab2:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
-        senha_digitada = st.text_input("Digite a Senha de Dono:", type="password", key="senha_receb_nelson")
         
-        if senha_digitada == SENHA_NELSON:
-            st.success("Acesso Liberado!")
-            
-            # Recarrega a planilha atualizada da nuvem
-            df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS)
+        # Se for você (Nelson), o sistema já libera tudo direto sem perguntar nada! 👑
+        liberar_painel = False
+        if is_admin:
+            liberar_painel = True
+            st.info("👑 Reconhecido como Diretor. Senha interna dispensada.")
+        else:
+            # Se for outro funcionário tentando entrar, ele ainda precisa digitar a senha de segurança
+            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password", key="campo_senha_master_nelson")
+            if senha_digitada == SENHA_NELSON_MESTRE:
+                liberar_painel = True
+            elif senha_digitada != "":
+                st.error("❌ Senha master incorreta.")
+        
+        if liberar_painel:
+            if os.path.exists(CAMINHO_VENDAS):
+                df_pedidos_atualizado = pd.read_excel(CAMINHO_VENDAS)
+            else:
+                df_pedidos_atualizado = df_pedidos
             
             if not df_pedidos_atualizado.empty:
                 df_ordenado = df_pedidos_atualizado.sort_values(by="Data_Hora", ascending=False)
@@ -143,7 +162,7 @@ else:
             else:
                 st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
 
-    # --- ABA 3: 👥 GESTÃO DA EQUIPE (CORRIGIDA) ---
+    # --- ABA 3: GESTÃO DA EQUIPE ---
     if is_admin:
         with tab3:
             st.subheader("👑 Controle de Vendedores do Tigrão")
@@ -183,3 +202,5 @@ else:
             st.markdown("---")
             st.write("📋 **Lista de Vendedores Cadastrados no Banco:**")
             st.dataframe(df_usuarios[["Nome", "Email", "Senha"]], use_container_width=True, hide_index=True)
+
+       
