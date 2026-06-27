@@ -92,17 +92,17 @@ else:
     st.markdown("---")
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-         if is_admin:
-        tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"])
+    if is_admin:
+    tab_pedido, tab_cadastro, tab_consulta_prod, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"])
     else:
-        tab_pedido, tab_cadastro, tab_consulta_prod = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos"])
+    tab_pedido, tab_cadastro, tab_consulta_prod = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "🔍 Consultar Produtos"])
 
-        cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
+    cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
         
-        if cliente_escolhido:
-            dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
-            if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
+    if cliente_escolhido:
+    dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
+    if not dados_busca.empty:
+    st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
