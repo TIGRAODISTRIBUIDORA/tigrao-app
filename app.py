@@ -18,7 +18,7 @@ CAMINHO_CLIENTES = "clientes_banco.xlsx"
 SENHA_NELSON_MESTRE = "TigraoNelson2026"
 EMAIL_DONO = "sodemilecem23@gmail.com"
 
-# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES (Lista Fixa Corporativa)
+# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES
 if not os.path.exists(CAMINHO_USUARIOS):
     pd.DataFrame([
         {"Email": EMAIL_DONO, "Senha": "123", "Nome": "Nelson Dono"},
@@ -37,7 +37,7 @@ if not os.path.exists(CAMINHO_CLIENTES):
 
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 
-# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS (ALINHADO COM OS CAMPOS DO DISA)
+# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
 if not os.path.exists(CAMINHO_VENDAS):
     pd.DataFrame(columns=["DataFat", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "faturado", "nf"]).to_excel(CAMINHO_VENDAS, index=False)
 
@@ -166,7 +166,7 @@ else:
         liberar_painel = False
         if is_admin:
             liberar_painel = True
-            st.info("👑 Reconhecido como Diretor. Acesso Liberado Automático.")
+            st.info("👑 Reconhecido como Diretor. Painel Liberado.")
         else:
             senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password")
             if senha_digitada == SENHA_NELSON_MESTRE:
@@ -207,5 +207,7 @@ else:
             if st.button("💾 Salvar Alterações Gerenciais"):
                 try:
                     tabela_faturamento.to_excel(CAMINHO_VENDAS, index=False)
-                    st.success("✅ Histórico de faturamento atualizado no banco de dados!")
+                    st.success("✅ Histórico de faturamento updated no banco de dados!")
                     st.rerun()
+                except Exception:
+                    st.error("Erro ao salvar.")
