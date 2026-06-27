@@ -9,16 +9,16 @@ st.set_page_config(page_title="Tigrão - Sistema Comercial", page_icon="🐯", l
 st.title("🐯 Tigrão Distribuidora")
 st.write("### 📦 Painel Integrado de Vendas e Cadastro")
 
-# Configurações do Banco de Dados Local do Bloco 1 e 2
+# Caminhos dos arquivos de banco de dados locais
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_USUARIOS = "usuarios_banco.xlsx"
 CAMINHO_CLIENTES = "clientes_banco.xlsx"
 
-# CONFIGURAÇÕES DE SEGURANÇA FIXAS
+# Configurações de segurança fixas
 SENHA_NELSON_MESTRE = "TigraoNelson2026"
 EMAIL_DONO = "sodemilecem23@gmail.com"
 
-# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES
+# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES (Lista Fixa Segura)
 if not os.path.exists(CAMINHO_USUARIOS):
     pd.DataFrame([
         {"Email": EMAIL_DONO, "Senha": "123", "Nome": "Nelson Dono"},
@@ -43,13 +43,13 @@ if not os.path.exists(CAMINHO_VENDAS):
 
 df_pedidos = pd.read_excel(CAMINHO_VENDAS)
 
-# GERENCIAMENTO DE SESSÃO DO LOGIN
+# Gerenciamento de sessão de login permanente
 if "vendedor_nome" not in st.session_state:
     st.session_state["vendedor_nome"] = ""
 if "vendedor_email" not in st.session_state:
     st.session_state["vendedor_email"] = ""
 
-# --- TELA DE ATIVAÇÃO ÚNICA ---
+# --- TELA DE ATIVAÇÃO ÚNICA (LOGIN COMPACTO) ---
 if st.session_state["vendedor_nome"] == "":
     st.subheader("🔐 Ativação Única do Aplicativo")
     st.write("Insira seu e-mail e senha corporativa para liberar o aparelho.")
@@ -70,12 +70,12 @@ if st.session_state["vendedor_nome"] == "":
             if not usuario_validar.empty:
                 st.session_state["vendedor_nome"] = usuario_validar.iloc[0]["Nome"]
                 st.session_state["vendedor_email"] = email_limpo
-                st.success(f"Dispositivo ativado com sucesso para {st.session_state['vendedor_nome']}!")
+                st.success(f"Dispositivo ativado com sucesso!")
                 st.rerun()
             else:
                 st.error("❌ E-mail ou Senha incorretos.")
 
-# --- SISTEMA LIBERADO ---
+# --- SISTEMA LIBERADO (ABAS DIRETAS SEM TRAVAS) ---
 else:
     st.success(f"👤 CONECTADO: **{st.session_state['vendedor_nome'].upper()}**")
     
@@ -88,17 +88,12 @@ else:
 
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-    # Organização das abas incluindo o Novo Bloco de Clientes de forma limpa
-    abas_titulos = ["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"]
-    if is_admin:
-        abas_titulos.append("👥 Gestão da Equipe")
-        
-    abas = st.tabs(abas_titulos)
+    # Lista compacta de abas sem misturar códigos pesados
+    tab_pedido, tab_cadastro, tab_recebimento = st.tabs(["📋 Passar Pedido", "➕ Cadastrar Cliente", "👑 Recebimento Nelson (Central)"])
 
     # --- ABA 1: PASSAR PEDIDO ---
-    with abas[0]:
+    with tab_pedido:
         st.subheader("1. Escolha o Cliente")
-        
         lista_nomes_clientes = df_clientes["Nome"].dropna().astype(str).tolist()
         cliente_escolhido = st.selectbox("Selecione o Cliente Cadastrado:", lista_nomes_clientes)
         
@@ -138,8 +133,8 @@ else:
             st.balloons()
             st.rerun()
 
-    # --- ABA 2: ➕ CADASTRAR CLIENTE ---
-    with abas[1]:
+    # --- ABA 2: CADASTRAR CLIENTE ---
+    with tab_cadastro:
         st.subheader("➕ Cadastro de Novo Cliente Comercial")
         
         with st.form("form_novo_cliente_rua"):
@@ -156,22 +151,21 @@ else:
                     novo_cl_df = pd.DataFrame([{"Codigo": proximo_cod, "Nome": razao_social.strip(), "CNPJ": cnpj_digitado.strip()}])
                     df_clientes_atualizado = pd.concat([df_clientes, novo_cl_df], ignore_index=True)
                     df_clientes_atualizado.to_excel(CAMINHO_CLIENTES, index=False)
-                    
-                    st.success(f"🎉 Cliente '{razao_social}' cadastrado com sucesso! Código gerado: COD-{proximo_cod}")
+                    st.success(f"🎉 Cliente '{razao_social}' cadastrado com sucesso!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Erro ao salvar cliente: {e}")
+                    st.error(f"Erro ao salvar: {e}")
 
     # --- ABA 3: RECEBIMENTO NELSON ---
-    with abas[2]:
+    with tab_recebimento:
         st.subheader("🔒 Painel de Recebimento de Pedidos")
         
         liberar_painel = False
         if is_admin:
             liberar_painel = True
-            st.info("👑 Reconhecido como Diretor. Senha interna dispensada.")
+            st.info("👑 Reconhecido como Diretor. Acesso Liberado Automático.")
         else:
-            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password", key="campo_senha_master_nelson")
+            senha_digitada = st.text_input("Digite a Senha Master da Empresa:", type="password")
             if senha_digitada == SENHA_NELSON_MESTRE:
                 liberar_painel = True
             elif senha_digitada != "":
@@ -195,24 +189,10 @@ else:
                     label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)",
                     data=buffer.getvalue(),
                     file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="btn_download_excel_nelson"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
                 st.write("---")
                 st.dataframe(df_ordenado[["Data_Hora", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Status"]], use_container_width=True, hide_index=True)
             else:
                 st.info("ℹ️ Nenhum pedido foi recebido no sistema ainda.")
-
-    # --- ABA 4: GESTÃO DA EQUIPE (CORRIGIDA E ALINHADA) ---
-    if is_admin and len(abas) > 3:
-        with abas[3]:
-            st.subheader("👑 Controle de Vendedores do Tigrão")
-            
-            with st.form("form_add_vendedor"):
-                v_nome = st.text_input("Nome Completo do Vendedor:")
-                v_email = st.text_input("E-mail de Login:")
-                v_senha = st.text_input("Senha Inicial:")
-                btn_v = st.form_submit_button("💾 Salvar Novo Vendedor")
-                
-            if btn_v and v_nome.strip() and v_email.strip():
