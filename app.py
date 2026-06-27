@@ -11,24 +11,20 @@ st.write("### 📦 Painel Integrado de Vendas e Cadastro")
 
 # Caminhos dos arquivos de banco de dados locais estáveis
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
-CAMINHO_USUARIOS = "usuarios_banco.xlsx"
 CAMINHO_CLIENTES = "clientes_banco.xlsx"
 
-# Configurações de segurança fixas da empresa
+# ConfiguraÇÕES DE SEGURANÇA E ACESSOS DIRETOS NO MOTOR DO APP
 SENHA_NELSON_MESTRE = "TigraoNelson2026"
 EMAIL_DONO = "sodemilecem23@gmail.com"
 
-# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDEDORES
-if not os.path.exists(CAMINHO_USUARIOS):
-    pd.DataFrame([
-        {"Email": EMAIL_DONO, "Senha": "123", "Nome": "Nelson Dono"},
-        {"Email": "joaquim@tigrao.com", "Senha": "123", "Nome": "Joaquim Silva"},
-        {"Email": "pedro@tigrao.com", "Senha": "123", "Nome": "Pedro Santos"}
-    ]).to_excel(CAMINHO_USUARIOS, index=False)
+# DICIONÁRIO DE ACESSOS FIXO E BLINDADO (Evita erro de senha incorreta)
+USUARIOS_SISTEMA = {
+    "sodemilecem23@gmail.com": {"senha": "123", "nome": "Nelson Dono"},
+    "joaquim@tigrao.com": {"senha": "123", "nome": "Joaquim Silva"},
+    "pedro@tigrao.com": {"senha": "123", "nome": "Pedro Santos"}
+}
 
-df_usuarios = pd.read_excel(CAMINHO_USUARIOS)
-
-# 2. INICIALIZAÇÃO DO BANCO DE DADOS DE CLIENTES
+# 1. INICIALIZAÇÃO DO BANCO DE DADOS DE CLIENTES
 if not os.path.exists(CAMINHO_CLIENTES):
     pd.DataFrame([
         {"Codigo": 1, "Nome": "Supermercado Silva", "CNPJ": "00.000.000/0001-00"},
@@ -37,7 +33,7 @@ if not os.path.exists(CAMINHO_CLIENTES):
 
 df_clientes = pd.read_excel(CAMINHO_CLIENTES)
 
-# 3. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
+# 2. INICIALIZAÇÃO DO BANCO DE DADOS DE VENDAS
 if not os.path.exists(CAMINHO_VENDAS):
     pd.DataFrame(columns=["DataFat", "Vendedor", "Cliente", "Produto", "Quantidade", "Total", "Pagamento", "faturado", "nf"]).to_excel(CAMINHO_VENDAS, index=False)
 
@@ -64,7 +60,7 @@ if "vendedor_nome" not in st.session_state:
 if "vendedor_email" not in st.session_state:
     st.session_state["vendedor_email"] = ""
 
-# --- TELA DE ATIVAÇÃO ÚNICA (LOGIN) ---
+# --- TELA DE ATIVAÇÃO ÚNICA (LOGIN BLINDADO) ---
 if st.session_state["vendedor_nome"] == "":
     st.subheader("🔐 Ativação Única do Aplicativo")
     st.write("Insira seu e-mail e senha corporativa para liberar o aparelho.")
@@ -74,20 +70,16 @@ if st.session_state["vendedor_nome"] == "":
     
     if st.button("🚀 Ativar Aplicativo neste Celular"):
         email_limpo = email_input.strip().lower()
-        if email_limpo == EMAIL_DONO and senha_input.strip() == "123":
-            st.session_state["vendedor_nome"] = "Nelson Dono"
-            st.session_state["vendedor_email"] = EMAIL_DONO
-            st.success("Dispositivo ativado!")
+        senha_limpa = senha_input.strip()
+        
+        # Validação direta e infalível no dicionário fixo do código
+        if email_limpo in USUARIOS_SISTEMA and USUARIOS_SISTEMA[email_limpo]["senha"] == senha_limpa:
+            st.session_state["vendedor_nome"] = USUARIOS_SISTEMA[email_limpo]["nome"]
+            st.session_state["vendedor_email"] = email_limpo
+            st.success("Dispositivo ativado com sucesso!")
             st.rerun()
         else:
-            usuario_validar = df_usuarios[(df_usuarios["Email"].astype(str).str.lower() == email_limpo) & (df_usuarios["Senha"].astype(str) == senha_input.strip())]
-            if not usuario_validar.empty:
-                st.session_state["vendedor_nome"] = usuario_validar.iloc["Nome"]
-                st.session_state["vendedor_email"] = email_limpo
-                st.success("Dispositivo ativado com sucesso!")
-                st.rerun()
-            else:
-                st.error("❌ E-mail ou Senha incorretos.")
+            st.error("❌ E-mail ou Senha incorretos. Digite o e-mail completo e a senha 123.")
 
 # --- SISTEMA LIBERADO (PAINEL OPERACIONAL) ---
 else:
@@ -113,7 +105,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
             
         st.markdown("---")
         st.subheader("2. Itens do Pedido")
@@ -203,10 +195,15 @@ else:
             df_pedidos_atualizado["nf"] = df_pedidos_atualizado["nf"].fillna("")
             df_ordenado = df_pedidos_atualizado.sort_values(by="DataFat", ascending=False)
             
-            # 1. DOWNLOAD DA PLANILHA PARA O DISA (Comando totalmente corrigido e fechado em uma linha)
+            # 1. DOWNLOAD DA PLANILHA PARA O DISA
             st.subheader("📥 1. Baixar Planilha para o DISA")
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_ordenado.to_excel(writer, index=False, sheet_name='Pedidos_Faturamento')
             dados_planilha = buffer.getvalue()
             
+            st.download_button(label="📥 Baixar Planilha Excel para Nota Fiscal (.xlsx)", data=dados_planilha, file_name=f"faturamento_tigrao_{datetime.now().strftime('%d_%m_%Y')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
+            st.markdown("---")
+            # 2. VISUALIZAÇÃO E EDIÇÃO MANUAL DA PLANILHA VIVA NA TELA
+            st.subheader("📊 2. Histórico e Faturamento Gerencial")
