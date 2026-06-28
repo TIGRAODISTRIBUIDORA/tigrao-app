@@ -9,12 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# =========================
-# AMBIENTE DO SISTEMA
-# =========================
-
-AMBIENTE = "DESENVOLVIMENTO"  # depois mudamos para PRODUCAO
-
+AMBIENTE = "DESENVOLVIMENTO"
 PASTA_DADOS = "dados_dev" if AMBIENTE == "DESENVOLVIMENTO" else "dados_producao"
 
 ARQ_USUARIOS = f"{PASTA_DADOS}/usuarios.xlsx"
@@ -24,70 +19,35 @@ ARQ_PEDIDOS = f"{PASTA_DADOS}/pedidos.xlsx"
 
 os.makedirs(PASTA_DADOS, exist_ok=True)
 
-# =========================
-# CRIAR BANCOS SE NÃO EXISTIR
-# =========================
-
 def criar_bancos():
     if not os.path.exists(ARQ_USUARIOS):
         usuarios = pd.DataFrame([
-            {
-                "usuario": "admin",
-                "senha": "123",
-                "nome": "Nelson",
-                "tipo": "admin",
-                "ativo": "sim"
-            },
-            {
-                "usuario": "joao",
-                "senha": "123",
-                "nome": "João Vendedor",
-                "tipo": "vendedor",
-                "ativo": "sim"
-            }
+            {"usuario": "admin", "senha": "123", "nome": "Nelson", "tipo": "admin", "ativo": "sim"},
+            {"usuario": "joao", "senha": "123", "nome": "João Vendedor", "tipo": "vendedor", "ativo": "sim"}
         ])
         usuarios.to_excel(ARQ_USUARIOS, index=False)
 
     if not os.path.exists(ARQ_CLIENTES):
         clientes = pd.DataFrame(columns=[
-            "codigo",
-            "nome",
-            "cnpj",
-            "telefone",
-            "cidade",
-            "vendedor",
-            "status",
-            "data_cadastro"
+            "codigo", "nome", "cnpj", "telefone", "cidade",
+            "vendedor", "status", "data_cadastro"
         ])
         clientes.to_excel(ARQ_CLIENTES, index=False)
 
     if not os.path.exists(ARQ_PRODUTOS):
         produtos = pd.DataFrame(columns=[
-            "codigo",
-            "produto",
-            "preco",
-            "status"
+            "codigo", "produto", "preco", "status"
         ])
         produtos.to_excel(ARQ_PRODUTOS, index=False)
 
     if not os.path.exists(ARQ_PEDIDOS):
         pedidos = pd.DataFrame(columns=[
-            "numero",
-            "data",
-            "vendedor",
-            "cliente",
-            "produto",
-            "quantidade",
-            "preco",
-            "total"
+            "numero", "data", "vendedor", "cliente",
+            "produto", "quantidade", "preco", "total"
         ])
         pedidos.to_excel(ARQ_PEDIDOS, index=False)
 
 criar_bancos()
-
-# =========================
-# FUNÇÕES
-# =========================
 
 def carregar_excel(caminho):
     return pd.read_excel(caminho)
@@ -106,9 +66,9 @@ def login():
         usuarios = carregar_excel(ARQ_USUARIOS)
 
         acesso = usuarios[
-            (usuarios["usuario"] == usuario) &
+            (usuarios["usuario"].astype(str) == usuario) &
             (usuarios["senha"].astype(str) == senha) &
-            (usuarios["ativo"] == "sim")
+            (usuarios["ativo"].astype(str).str.lower() == "sim")
         ]
 
         if not acesso.empty:
@@ -123,10 +83,6 @@ def login():
 def sair():
     st.session_state.clear()
     st.rerun()
-
-# =========================
-# CADASTRO DE CLIENTES
-# =========================
 
 def cadastro_clientes():
     st.header("👥 Cadastro de Clientes")
@@ -144,16 +100,19 @@ def cadastro_clientes():
             vendedor = st.selectbox("Vendedor responsável", vendedores)
         else:
             vendedor = st.session_state["usuario"]
+            st.info(f"Cliente será vinculado ao vendedor: {st.session_state['nome']}")
 
         salvar = st.form_submit_button("Salvar Cliente")
 
         if salvar:
+            if nome.strip() == "":
+                st.error("Informe o nome do cliente.")
+                return
+
             clientes = carregar_excel(ARQ_CLIENTES)
 
-            novo_codigo = len(clientes) + 1
-
             novo = {
-                "codigo": novo_codigo,
+                "codigo": len(clientes) + 1,
                 "nome": nome,
                 "cnpj": cnpj,
                 "telefone": telefone,
@@ -168,40 +127,34 @@ def cadastro_clientes():
 
             st.success("Cliente cadastrado com sucesso!")
 
-# =========================
-# CONSULTAR CLIENTES
-# =========================
-
 def consultar_clientes():
-    st.header("🔎 Consultar Clientes")
+    if st.session_state["tipo"] == "admin":
+        st.header("🔎 Consultar Clientes")
+    else:
+        st.header("🔎 Meus Clientes")
 
     clientes = carregar_excel(ARQ_CLIENTES)
 
     if st.session_state["tipo"] != "admin":
-        clientes = clientes[clientes["vendedor"] == st.session_state["usuario"]]
+        clientes = clientes[clientes["vendedor"].astype(str) == st.session_state["usuario"]]
 
-    busca = st.text_input("Pesquisar por nome, CNPJ, cidade ou vendedor")
+    busca = st.text_input("Pesquisar por nome, CNPJ ou cidade")
 
     if busca:
         busca = busca.lower()
         clientes = clientes[
-            clientes.astype(str).apply(
-                lambda linha: linha.str.lower().str.contains(busca).any(),
-                axis=1
-            )
+            clientes["nome"].astype(str).str.lower().str.contains(busca) |
+            clientes["cnpj"].astype(str).str.lower().str.contains(busca) |
+            clientes["cidade"].astype(str).str.lower().str.contains(busca)
         ]
 
     st.dataframe(clientes, use_container_width=True)
-
-# =========================
-# CADASTRO DE PRODUTOS
-# =========================
 
 def cadastro_produtos():
     st.header("📦 Cadastro de Produtos")
 
     if st.session_state["tipo"] != "admin":
-        st.warning("Apenas o administrador pode cadastrar produtos.")
+        st.error("Acesso bloqueado.")
         return
 
     with st.form("form_produto"):
@@ -212,6 +165,10 @@ def cadastro_produtos():
         salvar = st.form_submit_button("Salvar Produto")
 
         if salvar:
+            if produto.strip() == "":
+                st.error("Informe o nome do produto.")
+                return
+
             produtos = carregar_excel(ARQ_PRODUTOS)
 
             novo = {
@@ -226,10 +183,6 @@ def cadastro_produtos():
 
             st.success("Produto cadastrado com sucesso!")
 
-# =========================
-# NOVO PEDIDO
-# =========================
-
 def novo_pedido():
     st.header("🛒 Novo Pedido")
 
@@ -237,7 +190,7 @@ def novo_pedido():
     produtos = carregar_excel(ARQ_PRODUTOS)
 
     if st.session_state["tipo"] != "admin":
-        clientes = clientes[clientes["vendedor"] == st.session_state["usuario"]]
+        clientes = clientes[clientes["vendedor"].astype(str) == st.session_state["usuario"]]
 
     if clientes.empty:
         st.warning("Nenhum cliente disponível para este vendedor.")
@@ -256,12 +209,13 @@ def novo_pedido():
     else:
         clientes_filtrados = clientes
 
-    cliente = st.selectbox(
-        "Cliente",
-        clientes_filtrados["nome"].tolist()
-    )
+    if clientes_filtrados.empty:
+        st.warning("Nenhum cliente encontrado.")
+        return
 
-    busca_produto = st.text_input("Pesquisar produto")
+    cliente = st.selectbox("Cliente", clientes_filtrados["nome"].tolist())
+
+    busca_produto = st.text_input("Pesquisar produto por nome ou código")
 
     if busca_produto:
         produtos_filtrados = produtos[
@@ -271,11 +225,11 @@ def novo_pedido():
     else:
         produtos_filtrados = produtos
 
-    produto_nome = st.selectbox(
-        "Produto",
-        produtos_filtrados["produto"].tolist()
-    )
+    if produtos_filtrados.empty:
+        st.warning("Nenhum produto encontrado.")
+        return
 
+    produto_nome = st.selectbox("Produto", produtos_filtrados["produto"].tolist())
     produto_linha = produtos[produtos["produto"] == produto_nome].iloc[0]
 
     preco = float(produto_linha["preco"])
@@ -288,10 +242,8 @@ def novo_pedido():
     if st.button("Salvar Pedido"):
         pedidos = carregar_excel(ARQ_PEDIDOS)
 
-        numero = len(pedidos) + 1
-
         novo = {
-            "numero": numero,
+            "numero": len(pedidos) + 1,
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "vendedor": st.session_state["usuario"],
             "cliente": cliente,
@@ -304,31 +256,26 @@ def novo_pedido():
         pedidos = pd.concat([pedidos, pd.DataFrame([novo])], ignore_index=True)
         salvar_excel(pedidos, ARQ_PEDIDOS)
 
-        st.success(f"Pedido nº {numero} salvo com sucesso!")
-
-# =========================
-# HISTÓRICO DE PEDIDOS
-# =========================
+        st.success(f"Pedido nº {len(pedidos)} salvo com sucesso!")
 
 def historico_pedidos():
-    st.header("📋 Histórico de Pedidos")
+    if st.session_state["tipo"] == "admin":
+        st.header("📋 Histórico de Pedidos")
+    else:
+        st.header("📋 Meus Pedidos")
 
     pedidos = carregar_excel(ARQ_PEDIDOS)
 
     if st.session_state["tipo"] != "admin":
-        pedidos = pedidos[pedidos["vendedor"] == st.session_state["usuario"]]
+        pedidos = pedidos[pedidos["vendedor"].astype(str) == st.session_state["usuario"]]
 
     st.dataframe(pedidos, use_container_width=True)
-
-# =========================
-# PAINEL ADMIN
-# =========================
 
 def painel_admin():
     st.header("⚙️ Painel Administrativo")
 
     if st.session_state["tipo"] != "admin":
-        st.warning("Acesso permitido apenas para administrador.")
+        st.error("Acesso bloqueado.")
         return
 
     clientes = carregar_excel(ARQ_CLIENTES)
@@ -402,38 +349,9 @@ else:
         consultar_clientes()
 
     elif menu == "Cadastrar Produto":
-        if st.session_state["tipo"] == "admin":
-            cadastro_produtos()
-        else:
-            st.error("Acesso bloqueado.")
-
-    elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
-        historico_pedidos()
-
-    elif menu == "Painel Administrativo":
-        if st.session_state["tipo"] == "admin":
-            painel_admin()
-        else:
-            st.error("Acesso bloqueado.")
-
-    elif menu == "Sair":
-        sair()
-        ]
-    )
-
-    if menu == "Novo Pedido":
-        novo_pedido()
-
-    elif menu == "Cadastrar Cliente":
-        cadastro_clientes()
-
-    elif menu == "Consultar Clientes":
-        consultar_clientes()
-
-    elif menu == "Cadastrar Produto":
         cadastro_produtos()
 
-    elif menu == "Histórico de Pedidos":
+    elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
         historico_pedidos()
 
     elif menu == "Painel Administrativo":
