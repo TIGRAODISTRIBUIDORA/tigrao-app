@@ -9,15 +9,25 @@ PASTA = "dados_tigrao"
 ARQ_PRODUTOS = f"{PASTA}/produtos.xlsx"
 ARQ_CLIENTES = f"{PASTA}/clientes.xlsx"
 ARQ_PEDIDOS = f"{PASTA}/pedidos.xlsx"
+ARQ_FORNECEDORES = f"{PASTA}/fornecedores.xlsx"
 
 os.makedirs(PASTA, exist_ok=True)
 
-USUARIO = "admin"
-SENHA = "tigrao123"
+USUARIOS = {
+    "admin": {"senha": "tigrao123", "nome": "Administrador", "perfil": "admin"},
+    "vendedor": {"senha": "123", "nome": "Vendedor", "perfil": "vendedor"},
+}
+
 COMISSAO = 0.07
 
 
 def criar_bancos():
+    if not os.path.exists(ARQ_FORNECEDORES):
+        pd.DataFrame([
+            {"fornecedor": "Vitalab", "telefone": "", "cidade": ""},
+            {"fornecedor": "Mandiervas", "telefone": "", "cidade": ""},
+        ]).to_excel(ARQ_FORNECEDORES, index=False)
+
     if not os.path.exists(ARQ_PRODUTOS):
         pd.DataFrame(columns=["codigo", "produto", "un", "preco", "fornecedor"]).to_excel(ARQ_PRODUTOS, index=False)
 
@@ -41,7 +51,7 @@ def criar_bancos():
 def ler_excel(caminho):
     try:
         return pd.read_excel(caminho)
-    except:
+    except Exception:
         return pd.DataFrame()
 
 
@@ -49,12 +59,16 @@ def salvar_excel(df, caminho):
     df.to_excel(caminho, index=False)
 
 
-def garantir_coluna_fornecedor():
+def garantir_colunas():
     produtos = ler_excel(ARQ_PRODUTOS)
-
-    if len(produtos) > 0 and "fornecedor" not in produtos.columns:
+    if "fornecedor" not in produtos.columns:
         produtos["fornecedor"] = ""
         salvar_excel(produtos, ARQ_PRODUTOS)
+
+    fornecedores = ler_excel(ARQ_FORNECEDORES)
+    if "fornecedor" not in fornecedores.columns:
+        fornecedores = pd.DataFrame(columns=["fornecedor", "telefone", "cidade"])
+        salvar_excel(fornecedores, ARQ_FORNECEDORES)
 
 
 def limpar_colunas(df):
@@ -79,12 +93,16 @@ def limpar_colunas(df):
 def formatar_real(valor):
     try:
         return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
+    except Exception:
         return "R$ 0,00"
 
 
+def usuario_admin():
+    return st.session_state.get("perfil") == "admin"
+
+
 criar_bancos()
-garantir_coluna_fornecedor()
+garantir_colunas()
 
 
 st.markdown("""
@@ -178,9 +196,11 @@ if not st.session_state.logado:
         senha = st.text_input("Senha", type="password")
 
         if st.button("ENTRAR"):
-            if usuario == USUARIO and senha == SENHA:
+            if usuario in USUARIOS and senha == USUARIOS[usuario]["senha"]:
                 st.session_state.logado = True
-                st.session_state.vendedor = "Administrador"
+                st.session_state.usuario = usuario
+                st.session_state.vendedor = USUARIOS[usuario]["nome"]
+                st.session_state.perfil = USUARIOS[usuario]["perfil"]
                 st.rerun()
             else:
                 st.error("Usuário ou senha incorretos.")
@@ -192,24 +212,37 @@ if not st.session_state.logado:
 
 # MENU
 st.sidebar.markdown("## 🐯 TIGRÃO")
-st.sidebar.markdown("### Distribuidora")
+st.sidebar.markdown(f"### {st.session_state.vendedor}")
+st.sidebar.markdown(f"Perfil: **{st.session_state.perfil.upper()}**")
 
-menu = st.sidebar.radio(
-    "Menu",
-    [
+if usuario_admin():
+    opcoes_menu = [
         "Dashboard",
         "Novo Pedido",
         "Pedidos Lançados",
         "Clientes",
         "Produtos",
+        "Fornecedores",
         "Importar Produtos",
         "Comissões",
         "Sair"
     ]
-)
+else:
+    opcoes_menu = [
+        "Novo Pedido",
+        "Pedidos Lançados",
+        "Clientes",
+        "Produtos",
+        "Comissões",
+        "Sair"
+    ]
+
+menu = st.sidebar.radio("Menu", opcoes_menu)
 
 if menu == "Sair":
     st.session_state.logado = False
+    st.session_state.carrinho = []
+    st.session_state.produto_selecionado = None
     st.rerun()
 
 
@@ -240,10 +273,13 @@ elif menu == "Novo Pedido":
     produtos = ler_excel(ARQ_PRODUTOS)
     clientes = ler_excel(ARQ_CLIENTES)
 
+    if "fornecedor" not in produtos.columns:
+        produtos["fornecedor"] = ""
+
     st.markdown("<div class='titulo'>🛒 Novo Pedido</div>", unsafe_allow_html=True)
 
     if len(produtos) == 0:
-        st.warning("Nenhum produto cadastrado. Vá em 'Importar Produtos' para importar sua planilha.")
+        st.warning("Nenhum produto cadastrado.")
         st.stop()
 
     col_cliente, col_vendedor = st.columns(2)
@@ -270,7 +306,6 @@ elif menu == "Novo Pedido":
 
     for _, row in filtro.head(8).iterrows():
         col1, col2 = st.columns([5, 1])
-
         fornecedor = row.get("fornecedor", "")
 
         with col1:
@@ -353,7 +388,6 @@ elif menu == "Novo Pedido":
 
         with r3:
             st.markdown(f"<div class='card'>Total<br><div class='valor'>{formatar_real(total_geral)}</div></div>", unsafe_allow_html=True)
-
     else:
         st.info("Nenhum produto adicionado ao pedido.")
 
@@ -369,7 +403,6 @@ elif menu == "Novo Pedido":
                 data = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
                 novos = []
-
                 for item in st.session_state.carrinho:
                     novos.append({
                         "pedido": numero,
@@ -413,42 +446,41 @@ elif menu == "Pedidos Lançados":
         st.dataframe(pedidos, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("### 🗑️ Excluir Pedido")
-
-        lista_pedidos = sorted(pedidos["pedido"].dropna().unique())
-        pedido_excluir = st.selectbox("Selecione o número do pedido que deseja excluir", lista_pedidos)
-
-        dados_pedido = pedidos[pedidos["pedido"] == pedido_excluir]
-
-        if len(dados_pedido):
-            cliente_pedido = dados_pedido["cliente"].iloc[0]
-            total_pedido = dados_pedido["total"].sum()
-            st.warning(
-                f"Você está prestes a excluir o pedido nº {pedido_excluir} "
-                f"do cliente {cliente_pedido}, total {formatar_real(total_pedido)}."
-            )
-
-        confirmar = st.checkbox(f"Confirmo que desejo excluir o pedido nº {pedido_excluir}")
-
-        if st.button("🗑️ EXCLUIR PEDIDO"):
-            if not confirmar:
-                st.warning("Marque a confirmação antes de excluir.")
-            else:
-                pedidos = pedidos[pedidos["pedido"] != pedido_excluir]
-                salvar_excel(pedidos, ARQ_PEDIDOS)
-                st.success(f"Pedido nº {pedido_excluir} excluído com sucesso.")
-                st.rerun()
-
-        st.markdown("---")
-
         pedidos.to_excel("pedidos_exportados.xlsx", index=False)
-
         with open("pedidos_exportados.xlsx", "rb") as f:
             st.download_button(
                 "⬇️ Baixar pedidos em Excel",
                 f,
                 file_name="pedidos_tigrao.xlsx"
             )
+
+        if usuario_admin():
+            st.markdown("---")
+            st.markdown("### 🗑️ Excluir Pedido")
+
+            lista_pedidos = sorted(pedidos["pedido"].dropna().unique())
+            pedido_excluir = st.selectbox("Selecione o número do pedido que deseja excluir", lista_pedidos)
+
+            dados_pedido = pedidos[pedidos["pedido"] == pedido_excluir]
+
+            if len(dados_pedido):
+                cliente_pedido = dados_pedido["cliente"].iloc[0]
+                total_pedido = dados_pedido["total"].sum()
+                st.warning(
+                    f"Você está prestes a excluir o pedido nº {pedido_excluir} "
+                    f"do cliente {cliente_pedido}, total {formatar_real(total_pedido)}."
+                )
+
+            confirmar = st.checkbox(f"Confirmo que desejo excluir o pedido nº {pedido_excluir}")
+
+            if st.button("🗑️ EXCLUIR PEDIDO"):
+                if not confirmar:
+                    st.warning("Marque a confirmação antes de excluir.")
+                else:
+                    pedidos = pedidos[pedidos["pedido"] != pedido_excluir]
+                    salvar_excel(pedidos, ARQ_PEDIDOS)
+                    st.success(f"Pedido nº {pedido_excluir} excluído com sucesso.")
+                    st.rerun()
 
 
 # CLIENTES
@@ -457,25 +489,26 @@ elif menu == "Clientes":
 
     clientes = ler_excel(ARQ_CLIENTES)
 
-    with st.expander("Cadastrar cliente"):
-        codigo = st.number_input("Código do cliente", min_value=1, step=1)
-        nome = st.text_input("Nome")
-        cnpj = st.text_input("CNPJ")
-        telefone = st.text_input("Telefone")
-        cidade = st.text_input("Cidade")
+    if usuario_admin():
+        with st.expander("Cadastrar cliente"):
+            codigo = st.number_input("Código do cliente", min_value=1, step=1)
+            nome = st.text_input("Nome")
+            cnpj = st.text_input("CNPJ")
+            telefone = st.text_input("Telefone")
+            cidade = st.text_input("Cidade")
 
-        if st.button("Salvar Cliente"):
-            novo = pd.DataFrame([{
-                "codigo": codigo,
-                "cliente": nome,
-                "cnpj": cnpj,
-                "telefone": telefone,
-                "cidade": cidade
-            }])
-            clientes = pd.concat([clientes, novo], ignore_index=True)
-            salvar_excel(clientes, ARQ_CLIENTES)
-            st.success("Cliente salvo.")
-            st.rerun()
+            if st.button("Salvar Cliente"):
+                novo = pd.DataFrame([{
+                    "codigo": codigo,
+                    "cliente": nome,
+                    "cnpj": cnpj,
+                    "telefone": telefone,
+                    "cidade": cidade
+                }])
+                clientes = pd.concat([clientes, novo], ignore_index=True)
+                salvar_excel(clientes, ARQ_CLIENTES)
+                st.success("Cliente salvo.")
+                st.rerun()
 
     busca_cliente = st.text_input("Buscar cliente")
 
@@ -496,68 +529,71 @@ elif menu == "Produtos":
     st.markdown("<div class='titulo'>📦 Produtos</div>", unsafe_allow_html=True)
 
     produtos = ler_excel(ARQ_PRODUTOS)
+    fornecedores_df = ler_excel(ARQ_FORNECEDORES)
 
     if "fornecedor" not in produtos.columns:
         produtos["fornecedor"] = ""
 
-    with st.expander("Cadastrar produto manual"):
-        codigo = st.text_input("Código")
-        produto = st.text_input("Produto")
-        un = st.text_input("Unidade", value="UN")
-        preco = st.number_input("Preço", min_value=0.0, step=0.10)
-        fornecedor = st.text_input("Fornecedor")
+    lista_fornecedores = fornecedores_df["fornecedor"].dropna().astype(str).tolist() if "fornecedor" in fornecedores_df.columns else []
+    lista_fornecedores = sorted([f for f in lista_fornecedores if f.strip() != ""])
 
-        if st.button("Salvar Produto"):
-            novo = pd.DataFrame([{
-                "codigo": codigo,
-                "produto": produto,
-                "un": un,
-                "preco": preco,
-                "fornecedor": fornecedor
-            }])
-            produtos = pd.concat([produtos, novo], ignore_index=True)
-            salvar_excel(produtos, ARQ_PRODUTOS)
-            st.success("Produto salvo.")
-            st.rerun()
+    if usuario_admin():
+        with st.expander("Cadastrar produto manual"):
+            codigo = st.text_input("Código")
+            produto = st.text_input("Produto")
+            un = st.text_input("Unidade", value="UN")
+            preco = st.number_input("Preço", min_value=0.0, step=0.10)
+            fornecedor = st.selectbox("Fornecedor", lista_fornecedores) if lista_fornecedores else st.text_input("Fornecedor")
 
-    st.markdown("---")
-    st.markdown("### 📤 Exportar modelo / produtos")
+            if st.button("Salvar Produto"):
+                novo = pd.DataFrame([{
+                    "codigo": codigo,
+                    "produto": produto,
+                    "un": un,
+                    "preco": preco,
+                    "fornecedor": fornecedor
+                }])
+                produtos = pd.concat([produtos, novo], ignore_index=True)
+                salvar_excel(produtos, ARQ_PRODUTOS)
+                st.success("Produto salvo.")
+                st.rerun()
 
-    modelo_produtos = pd.DataFrame([
-        {
-            "codigo": "187",
-            "produto": "37 ERVAS 500MG 100 CAPSULAS",
-            "un": "UN",
-            "preco": 20.77,
-            "fornecedor": "Vitalab"
-        },
-        {
-            "codigo": "188",
-            "produto": "37 ERVAS 500MG 60 CAPSULAS",
-            "un": "UN",
-            "preco": 13.90,
-            "fornecedor": "Mandiervas"
-        }
-    ])
+        st.markdown("---")
+        st.markdown("### 📤 Exportar modelo / produtos")
 
-    modelo_produtos.to_excel("modelo_produtos_tigrao.xlsx", index=False)
+        modelo_produtos = pd.DataFrame([
+            {
+                "codigo": "187",
+                "produto": "37 ERVAS 500MG 100 CAPSULAS",
+                "un": "UN",
+                "preco": 20.77,
+                "fornecedor": "Vitalab"
+            },
+            {
+                "codigo": "188",
+                "produto": "37 ERVAS 500MG 60 CAPSULAS",
+                "un": "UN",
+                "preco": 13.90,
+                "fornecedor": "Mandiervas"
+            }
+        ])
 
-    with open("modelo_produtos_tigrao.xlsx", "rb") as f:
-        st.download_button(
-            "⬇️ Baixar modelo de importação",
-            f,
-            file_name="modelo_produtos_tigrao.xlsx"
-        )
-
-    if len(produtos) > 0:
-        produtos.to_excel("produtos_tigrao_exportados.xlsx", index=False)
-
-        with open("produtos_tigrao_exportados.xlsx", "rb") as f:
+        modelo_produtos.to_excel("modelo_produtos_tigrao.xlsx", index=False)
+        with open("modelo_produtos_tigrao.xlsx", "rb") as f:
             st.download_button(
-                "⬇️ Exportar produtos cadastrados",
+                "⬇️ Baixar modelo de importação",
                 f,
-                file_name="produtos_tigrao.xlsx"
+                file_name="modelo_produtos_tigrao.xlsx"
             )
+
+        if len(produtos) > 0:
+            produtos.to_excel("produtos_tigrao_exportados.xlsx", index=False)
+            with open("produtos_tigrao_exportados.xlsx", "rb") as f:
+                st.download_button(
+                    "⬇️ Exportar produtos cadastrados",
+                    f,
+                    file_name="produtos_tigrao.xlsx"
+                )
 
     st.markdown("---")
     st.markdown("### 🔍 Consultar produtos")
@@ -590,11 +626,77 @@ elif menu == "Produtos":
     st.dataframe(produtos_filtrados, use_container_width=True)
 
 
+# FORNECEDORES
+elif menu == "Fornecedores":
+    if not usuario_admin():
+        st.error("Acesso permitido somente para administrador.")
+        st.stop()
+
+    st.markdown("<div class='titulo'>🏭 Fornecedores</div>", unsafe_allow_html=True)
+
+    fornecedores = ler_excel(ARQ_FORNECEDORES)
+
+    with st.expander("Cadastrar fornecedor"):
+        nome_fornecedor = st.text_input("Nome do fornecedor")
+        telefone = st.text_input("Telefone")
+        cidade = st.text_input("Cidade")
+
+        if st.button("Salvar Fornecedor"):
+            if nome_fornecedor.strip() == "":
+                st.warning("Informe o nome do fornecedor.")
+            else:
+                novo = pd.DataFrame([{
+                    "fornecedor": nome_fornecedor.strip(),
+                    "telefone": telefone,
+                    "cidade": cidade
+                }])
+                fornecedores = pd.concat([fornecedores, novo], ignore_index=True)
+                fornecedores = fornecedores.drop_duplicates(subset=["fornecedor"], keep="last")
+                salvar_excel(fornecedores, ARQ_FORNECEDORES)
+                st.success("Fornecedor salvo.")
+                st.rerun()
+
+    busca_forn = st.text_input("Buscar fornecedor")
+
+    if busca_forn:
+        fornecedores_filtrados = fornecedores[
+            fornecedores.astype(str).apply(
+                lambda linha: linha.str.contains(busca_forn, case=False, na=False).any(),
+                axis=1
+            )
+        ]
+        st.dataframe(fornecedores_filtrados, use_container_width=True)
+    else:
+        st.dataframe(fornecedores, use_container_width=True)
+
+
 # IMPORTAR PRODUTOS
 elif menu == "Importar Produtos":
+    if not usuario_admin():
+        st.error("Acesso permitido somente para administrador.")
+        st.stop()
+
     st.markdown("<div class='titulo'>📥 Importar Produtos por Excel</div>", unsafe_allow_html=True)
 
     st.info("A planilha precisa ter: código, produto, unidade, preço e fornecedor.")
+
+    modelo_produtos = pd.DataFrame([
+        {
+            "codigo": "187",
+            "produto": "37 ERVAS 500MG 100 CAPSULAS",
+            "un": "UN",
+            "preco": 20.77,
+            "fornecedor": "Vitalab"
+        }
+    ])
+
+    modelo_produtos.to_excel("modelo_produtos_tigrao.xlsx", index=False)
+    with open("modelo_produtos_tigrao.xlsx", "rb") as f:
+        st.download_button(
+            "⬇️ Baixar modelo de importação",
+            f,
+            file_name="modelo_produtos_tigrao.xlsx"
+        )
 
     arquivo = st.file_uploader("Escolha a planilha de produtos", type=["xlsx", "xls", "csv"])
 
@@ -656,25 +758,29 @@ elif menu == "Importar Produtos":
 
             if len(produtos_atual) == 0:
                 salvar_excel(novo_df, ARQ_PRODUTOS)
-                st.success(f"{len(novo_df)} produtos importados com sucesso.")
-                st.rerun()
+            else:
+                produtos_atual["codigo"] = produtos_atual["codigo"].astype(str).str.strip()
+                codigos_novos = set(novo_df["codigo"].astype(str))
 
-            produtos_atual["codigo"] = produtos_atual["codigo"].astype(str).str.strip()
+                produtos_final = pd.concat([
+                    produtos_atual[~produtos_atual["codigo"].astype(str).isin(codigos_novos)],
+                    novo_df
+                ], ignore_index=True)
 
-            codigos_antigos = set(produtos_atual["codigo"].astype(str))
-            codigos_novos = set(novo_df["codigo"].astype(str))
+                salvar_excel(produtos_final, ARQ_PRODUTOS)
 
-            atualizados = len(codigos_antigos.intersection(codigos_novos))
-            cadastrados = len(codigos_novos - codigos_antigos)
+            fornecedores = ler_excel(ARQ_FORNECEDORES)
+            novos_fornecedores = novo_df[["fornecedor"]].drop_duplicates()
+            novos_fornecedores = novos_fornecedores[novos_fornecedores["fornecedor"].astype(str).str.strip() != ""]
 
-            produtos_final = pd.concat([
-                produtos_atual[~produtos_atual["codigo"].astype(str).isin(codigos_novos)],
-                novo_df
-            ], ignore_index=True)
+            if len(novos_fornecedores):
+                novos_fornecedores["telefone"] = ""
+                novos_fornecedores["cidade"] = ""
+                fornecedores = pd.concat([fornecedores, novos_fornecedores], ignore_index=True)
+                fornecedores = fornecedores.drop_duplicates(subset=["fornecedor"], keep="last")
+                salvar_excel(fornecedores, ARQ_FORNECEDORES)
 
-            salvar_excel(produtos_final, ARQ_PRODUTOS)
-
-            st.success(f"Importação concluída! Novos: {cadastrados} | Atualizados: {atualizados}")
+            st.success("Produtos importados e fornecedores atualizados com sucesso.")
             st.rerun()
 
 
