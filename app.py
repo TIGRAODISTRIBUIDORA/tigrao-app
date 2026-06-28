@@ -5,8 +5,6 @@ from datetime import datetime
 from io import BytesIO
 
 st.set_page_config(page_title="Tigrão - Sistema DEV", page_icon="🐯", layout="wide")
-
-AMBIENTE = "DESENVOLVIMENTO"
 COMISSAO_PADRAO = 0.07
 
 PASTA_DADOS = "dados_dev" if AMBIENTE == "DESENVOLVIMENTO" else "dados_producao"
