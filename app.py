@@ -384,7 +384,8 @@ elif menu == "Novo Pedido":
             st.markdown(f"<div class='card'>Total<br><div class='valor'>{formatar_real(total_geral)}</div></div>", unsafe_allow_html=True)
 
     else:
-        st.info("Nenhum produto adicionado ao pedido.")f1, f2 = st.columns(2)
+        st.info("Nenhum produto adicionado ao pedido.")
+        f1, f2 = st.columns(2)
 
     with f1:
         if st.button("✅ FINALIZAR PEDIDO"):
