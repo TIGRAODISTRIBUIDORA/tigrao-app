@@ -957,13 +957,11 @@ def novo_pedido():
         step=0.5
     )
 
-    prazo_pagamento_dias = st.number_input(
-        "Prazo de pagamento (dias)",
-        min_value=0,
-        max_value=365,
-        value=0,
-        step=1
-    )
+    prazo_pagamento_dias = st.text_input(
+    "Prazo de pagamento (dias) - Ex: 28 ou 28/56/84/112",
+    value="0"
+)
+
 
     valor_desconto = subtotal * (desconto_percentual / 100)
     total = subtotal - valor_desconto
