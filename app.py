@@ -368,7 +368,8 @@ def editar_produtos():
 
             salvar_excel(produtos, ARQ_PRODUTOS)
             st.success(f"Produto atualizado! Desconto salvo: {novo_desconto:.1f}%")
-            st.rerun(def gerenciar_status():
+            st.rerun()
+            def gerenciar_status():
     st.header("🔒 Gerenciar Status")
 
     if st.session_state["tipo"] != "admin":
@@ -682,4 +683,4 @@ else:
     elif menu == "Painel Administrativo":
         painel_admin()
     elif menu == "Sair":
-        sair())
+        sair()
