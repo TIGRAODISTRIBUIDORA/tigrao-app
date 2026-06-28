@@ -276,11 +276,7 @@ elif menu == "Novo Pedido":
         p = st.session_state.produto_selecionado
 
         st.markdown("### Produto selecionado")
-
-        st.markdown(
-            f"<div class='card'><b>{p['codigo']} - {p['produto']}</b></div>",
-            unsafe_allow_html=True
-        )
+        st.markdown(f"<div class='card'><b>{p['codigo']} - {p['produto']}</b></div>", unsafe_allow_html=True)
 
         q1, q2, q3 = st.columns(3)
 
@@ -348,7 +344,6 @@ elif menu == "Novo Pedido":
                 st.warning("Adicione pelo menos um produto.")
             else:
                 pedidos = ler_excel(ARQ_PEDIDOS)
-
                 numero = 1 if len(pedidos) == 0 else int(pedidos["pedido"].max()) + 1
                 data = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -401,25 +396,19 @@ elif menu == "Pedidos Lançados":
 
         lista_pedidos = sorted(pedidos["pedido"].dropna().unique())
 
-        pedido_excluir = st.selectbox(
-            "Selecione o número do pedido que deseja excluir",
-            lista_pedidos
-        )
+        pedido_excluir = st.selectbox("Selecione o número do pedido que deseja excluir", lista_pedidos)
 
         dados_pedido = pedidos[pedidos["pedido"] == pedido_excluir]
 
         if len(dados_pedido):
             cliente_pedido = dados_pedido["cliente"].iloc[0]
             total_pedido = dados_pedido["total"].sum()
-
             st.warning(
                 f"Você está prestes a excluir o pedido nº {pedido_excluir} "
                 f"do cliente {cliente_pedido}, total {formatar_real(total_pedido)}."
             )
 
-        confirmar = st.checkbox(
-            f"Confirmo que desejo excluir o pedido nº {pedido_excluir}"
-        )
+        confirmar = st.checkbox(f"Confirmo que desejo excluir o pedido nº {pedido_excluir}")
 
         if st.button("🗑️ EXCLUIR PEDIDO"):
             if not confirmar:
@@ -505,6 +494,46 @@ elif menu == "Produtos":
             salvar_excel(produtos, ARQ_PRODUTOS)
             st.success("Produto salvo.")
             st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📤 Exportar modelo / produtos")
+
+    modelo_produtos = pd.DataFrame([
+        {
+            "codigo": "187",
+            "produto": "37 ERVAS 500MG 100 CAPSULAS",
+            "un": "UN",
+            "preco": 20.77
+        },
+        {
+            "codigo": "188",
+            "produto": "37 ERVAS 500MG 60 CAPSULAS",
+            "un": "UN",
+            "preco": 13.90
+        }
+    ])
+
+    modelo_produtos.to_excel("modelo_produtos_tigrao.xlsx", index=False)
+
+    with open("modelo_produtos_tigrao.xlsx", "rb") as f:
+        st.download_button(
+            "⬇️ Baixar modelo de importação",
+            f,
+            file_name="modelo_produtos_tigrao.xlsx"
+        )
+
+    if len(produtos) > 0:
+        produtos.to_excel("produtos_tigrao_exportados.xlsx", index=False)
+
+        with open("produtos_tigrao_exportados.xlsx", "rb") as f:
+            st.download_button(
+                "⬇️ Exportar produtos cadastrados",
+                f,
+                file_name="produtos_tigrao.xlsx"
+            )
+
+    st.markdown("---")
+    st.markdown("### 🔍 Consultar produtos")
 
     busca_prod = st.text_input("Buscar produto")
 
