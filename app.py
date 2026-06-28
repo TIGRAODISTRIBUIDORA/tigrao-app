@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+from io import BytesIO
 
 st.set_page_config(page_title="Tigrão - Sistema DEV", page_icon="🐯", layout="wide")
 
@@ -33,7 +34,7 @@ def criar_bancos():
     if not os.path.exists(ARQ_CLIENTES):
         pd.DataFrame(columns=[
             "codigo", "nome", "cnpj", "telefone", "cidade",
-            "vendedor", "prazo_maximo_dias", "status", "data_cadastro"
+            "vendedor", "status", "data_cadastro"
         ]).to_excel(ARQ_CLIENTES, index=False)
 
     if not os.path.exists(ARQ_PRODUTOS):
@@ -63,16 +64,14 @@ def ajustar_bancos():
     produtos["status"] = produtos["status"].astype(str)
     produtos["preco"] = pd.to_numeric(produtos["preco"], errors="coerce").fillna(0.0)
     produtos["desconto_maximo"] = pd.to_numeric(produtos["desconto_maximo"], errors="coerce").fillna(0.0)
+
     salvar_excel(produtos, ARQ_PRODUTOS)
 
     clientes = carregar_excel(ARQ_CLIENTES)
 
     if "status" not in clientes.columns:
         clientes["status"] = "ativo"
-    if "prazo_maximo_dias" not in clientes.columns:
-        clientes["prazo_maximo_dias"] = 30
 
-    clientes["prazo_maximo_dias"] = pd.to_numeric(clientes["prazo_maximo_dias"], errors="coerce").fillna(30).astype(int)
     salvar_excel(clientes, ARQ_CLIENTES)
 
     usuarios = carregar_excel(ARQ_USUARIOS)
@@ -142,7 +141,6 @@ def cadastro_clientes():
         cnpj = st.text_input("CNPJ")
         telefone = st.text_input("Telefone")
         cidade = st.text_input("Cidade")
-        prazo_maximo_dias = st.number_input("Prazo máximo permitido para pagamento (dias)", min_value=0, max_value=365, value=30, step=1)
 
         if st.session_state["tipo"] == "admin":
             vendedor = st.selectbox("Vendedor responsável", vendedores)
@@ -166,7 +164,6 @@ def cadastro_clientes():
                 "telefone": telefone,
                 "cidade": cidade,
                 "vendedor": vendedor,
-                "prazo_maximo_dias": int(prazo_maximo_dias),
                 "status": "ativo",
                 "data_cadastro": datetime.now().strftime("%d/%m/%Y %H:%M")
             }
@@ -376,7 +373,6 @@ def editar_produtos():
             produtos.at[escolha, "status"] = str(novo_status)
 
             salvar_excel(produtos, ARQ_PRODUTOS)
-
             st.success(f"Produto atualizado! Desconto salvo: {novo_desconto:.1f}%")
             st.rerun()
 
@@ -441,6 +437,45 @@ def gerenciar_status():
             st.success("Status do vendedor atualizado com sucesso!")
             st.rerun()
 
+def ferramentas_excel_pedidos():
+    st.subheader("📥 Importar / Exportar Pedidos em Excel")
+
+    pedidos = carregar_excel(ARQ_PEDIDOS)
+
+    buffer = BytesIO()
+    pedidos.to_excel(buffer, index=False, engine="openpyxl")
+    buffer.seek(0)
+
+    st.download_button(
+        label="📤 Exportar pedidos para Excel",
+        data=buffer,
+        file_name="pedidos_tigrao.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    arquivo = st.file_uploader("📥 Importar planilha de pedidos", type=["xlsx"])
+
+    if arquivo is not None:
+        novos_pedidos = pd.read_excel(arquivo)
+
+        st.write("Pré-visualização da planilha importada:")
+        st.dataframe(novos_pedidos, use_container_width=True)
+
+        if st.button("Confirmar importação"):
+            pedidos_atual = carregar_excel(ARQ_PEDIDOS)
+
+            for coluna in pedidos_atual.columns:
+                if coluna not in novos_pedidos.columns:
+                    novos_pedidos[coluna] = ""
+
+            novos_pedidos = novos_pedidos[pedidos_atual.columns]
+
+            pedidos_final = pd.concat([pedidos_atual, novos_pedidos], ignore_index=True)
+            salvar_excel(pedidos_final, ARQ_PEDIDOS)
+
+            st.success("Pedidos importados com sucesso!")
+            st.rerun()
+
 def novo_pedido():
     st.header("🛒 Novo Pedido")
 
@@ -475,8 +510,6 @@ def novo_pedido():
         return
 
     cliente = st.selectbox("Cliente", clientes_filtrados["nome"].tolist())
-    cliente_linha = clientes[clientes["nome"] == cliente].iloc[0]
-    prazo_maximo = int(cliente_linha.get("prazo_maximo_dias", 30))
 
     busca_produto = st.text_input("Pesquisar produto por nome ou código")
 
@@ -510,9 +543,9 @@ def novo_pedido():
     )
 
     prazo_pagamento_dias = st.number_input(
-        f"Prazo de pagamento (dias) - máximo permitido: {prazo_maximo} dias",
+        "Prazo de pagamento (dias)",
         min_value=0,
-        max_value=prazo_maximo,
+        max_value=365,
         value=0,
         step=1
     )
@@ -619,6 +652,8 @@ def painel_admin():
     col5.metric("Comissões", f"R$ {total_comissao:,.2f}")
 
     st.success(f"Total vendido: R$ {total_vendido:,.2f}")
+
+    ferramentas_excel_pedidos()
 
     st.subheader("Transferir Cliente de Vendedor")
 
