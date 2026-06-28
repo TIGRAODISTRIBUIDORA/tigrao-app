@@ -967,6 +967,15 @@ def novo_pedido():
     total = subtotal - valor_desconto
     percentual_comissao_vendedor = obter_comissao_vendedor(st.session_state["usuario"])
     comissao = total * percentual_comissao_vendedor
+       # --- CARRINHO EXIBIDO LOGO ABAIXO DA PESQUISA DO PRODUTO ---
+    if "carrinho" in rua.estado_da_sessão and rua.estado_da_sessão["carrinho"]:
+        rua.subtítulo("🛒 Itens do Pedido Atual")
+        df_carrinho = pd.DataFrame(rua.estado_da_sessão["carrinho"])
+        rua.dados_tabela(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
+        
+        if rua.botão("🗑️ Limpar Carrinho"):
+            rua.estado_da_sessão["carrinho"] = []
+            rua.reexecutar()
 
     st.info(f"Preço unitário: R$ {preco:.2f}")
     st.info(f"Subtotal: R$ {subtotal:.2f}")
