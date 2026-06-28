@@ -367,16 +367,57 @@ else:
     st.sidebar.write(f"Tipo: {st.session_state['tipo']}")
     st.sidebar.warning(f"Ambiente: {AMBIENTE}")
 
-    menu = st.sidebar.radio(
-        "Menu",
-        [
-            "Novo Pedido",
-            "Cadastrar Cliente",
-            "Consultar Clientes",
-            "Cadastrar Produto",
-            "Histórico de Pedidos",
-            "Painel Administrativo",
-            "Sair"
+    if st.session_state["tipo"] == "admin":
+        menu = st.sidebar.radio(
+            "Menu",
+            [
+                "Painel Administrativo",
+                "Novo Pedido",
+                "Cadastrar Cliente",
+                "Consultar Clientes",
+                "Cadastrar Produto",
+                "Histórico de Pedidos",
+                "Sair"
+            ]
+        )
+    else:
+        menu = st.sidebar.radio(
+            "Menu",
+            [
+                "Novo Pedido",
+                "Cadastrar Cliente",
+                "Meus Clientes",
+                "Meus Pedidos",
+                "Sair"
+            ]
+        )
+
+    if menu == "Novo Pedido":
+        novo_pedido()
+
+    elif menu == "Cadastrar Cliente":
+        cadastro_clientes()
+
+    elif menu in ["Consultar Clientes", "Meus Clientes"]:
+        consultar_clientes()
+
+    elif menu == "Cadastrar Produto":
+        if st.session_state["tipo"] == "admin":
+            cadastro_produtos()
+        else:
+            st.error("Acesso bloqueado.")
+
+    elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
+        historico_pedidos()
+
+    elif menu == "Painel Administrativo":
+        if st.session_state["tipo"] == "admin":
+            painel_admin()
+        else:
+            st.error("Acesso bloqueado.")
+
+    elif menu == "Sair":
+        sair()
         ]
     )
 
