@@ -257,52 +257,90 @@ def cadastro_produtos():
         st.error("Acesso bloqueado.")
         return
 
-    with st.form("form_produto"):
-        codigo = st.text_input("Código do produto")
-        produto = st.text_input("Nome do produto")
-        preco = st.number_input("Preço", min_value=0.0, step=0.01)
+    aba = st.radio(
+        "Escolha uma opção",
+        ["Cadastrar manualmente", "Importar Excel", "Exportar Excel"],
+        horizontal=True
+    )
 
-        desconto_maximo = st.number_input(
-            "Desconto máximo permitido (%)",
-            min_value=0.0,
-            max_value=100.0,
-            step=0.5
+    if aba == "Cadastrar manualmente":
+        with st.form("form_produto"):
+            codigo = st.text_input("Código do produto")
+            produto = st.text_input("Nome do produto")
+            preco = st.number_input("Preço", min_value=0.0, step=0.01)
+            desconto_maximo = st.number_input("Desconto máximo permitido (%)",0.0,100.0,0.0,0.5)
+            salvar = st.form_submit_button("Salvar Produto")
+            if salvar:
+                produtos = carregar_excel(ARQ_PRODUTOS)
+                produtos["codigo"]=produtos["codigo"].astype(str)
+                if produtos["codigo"].str.strip().eq(str(codigo).strip()).any():
+                    st.error("Já existe um produto com esse código.")
+                    return
+                novo={
+                    "codigo":str(codigo).strip(),
+                    "produto":str(produto).strip(),
+                    "preco":float(preco),
+                    "desconto_maximo":float(desconto_maximo),
+                    "status":"ativo"
+                }
+                produtos=pd.concat([produtos,pd.DataFrame([novo])],ignore_index=True)
+                salvar_excel(produtos,ARQ_PRODUTOS)
+                st.success("Produto cadastrado com sucesso!")
+
+    elif aba=="Importar Excel":
+        st.subheader("📥 Importar Produtos")
+
+        modelo=pd.DataFrame(columns=["codigo","produto","preco","desconto_maximo","status"])
+
+        buffer=BytesIO()
+        modelo.to_excel(buffer,index=False,engine="openpyxl")
+        buffer.seek(0)
+
+        st.download_button(
+            "📄 Baixar modelo",
+            buffer,
+            "modelo_produtos.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        salvar = st.form_submit_button("Salvar Produto")
+        arquivo=st.file_uploader("Selecione a planilha",type=["xlsx"])
 
-        if salvar:
-            produtos = carregar_excel(ARQ_PRODUTOS)
-            produtos["codigo"] = produtos["codigo"].astype(str)
+        if arquivo is not None:
+            novos=pd.read_excel(arquivo)
+            st.dataframe(novos,use_container_width=True)
 
-            codigo_limpo = str(codigo).strip()
-            produto_limpo = str(produto).strip()
+            if st.button("Importar Produtos"):
+                atual=carregar_excel(ARQ_PRODUTOS)
+                atual["codigo"]=atual["codigo"].astype(str).str.strip()
 
-            if codigo_limpo == "":
-                st.error("Informe o código do produto.")
-                return
+                if "desconto_maximo" not in novos.columns:
+                    novos["desconto_maximo"]=0.0
+                if "status" not in novos.columns:
+                    novos["status"]="ativo"
 
-            if produto_limpo == "":
-                st.error("Informe o nome do produto.")
-                return
+                novos["codigo"]=novos["codigo"].astype(str).str.strip()
 
-            codigo_existe = produtos["codigo"].astype(str).str.strip().eq(codigo_limpo).any()
+                novos=novos[~novos["codigo"].isin(atual["codigo"])]
 
-            if codigo_existe:
-                st.error("Já existe um produto cadastrado com esse código.")
-                return
+                final=pd.concat([atual,novos],ignore_index=True)
+                salvar_excel(final,ARQ_PRODUTOS)
 
-            novo = {
-                "codigo": codigo_limpo,
-                "produto": produto_limpo,
-                "preco": float(preco),
-                "desconto_maximo": float(desconto_maximo),
-                "status": "ativo"
-            }
+                st.success(f"{len(novos)} produtos importados.")
+                st.rerun()
 
-            produtos = pd.concat([produtos, pd.DataFrame([novo])], ignore_index=True)
-            salvar_excel(produtos, ARQ_PRODUTOS)
-            st.success("Produto cadastrado com sucesso!")
+    else:
+        st.subheader("📤 Exportar Produtos")
+        produtos=carregar_excel(ARQ_PRODUTOS)
+        buffer=BytesIO()
+        produtos.to_excel(buffer,index=False,engine="openpyxl")
+        buffer.seek(0)
+        st.download_button(
+            "📤 Baixar Produtos",
+            buffer,
+            "produtos_tigrao.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
 
 def consultar_produtos():
     st.header("🔎 Consultar Produtos")
