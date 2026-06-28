@@ -93,7 +93,7 @@ if st.session_state["vendedor_nome"] == "":
             st.session_state["vendedor_nome"] = nomes_mapa[email_limpo]
             st.session_state["vendedor_email"] = email_limpo
             st.success("Dispositivo ativado com sucesso!")
-            st.rerun()  # <--- LINHA 96 CORRIGIDA AQUI!
+            st.rerun()
         else:
             st.error("❌ E-mail ou Senha incorretos. Use a senha 123.")
 
@@ -126,7 +126,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'].values[0])} | CNPJ: {dados_busca.iloc['CNPJ'].values[0]}")
         
         st.markdown("---")
         st.subheader("2. Vincular Fornecedor")
@@ -135,12 +135,12 @@ else:
             
         st.markdown("---")
         st.subheader("3. Itens do Pedido")
-        produto = st.selectbox("Selecione o Produto:", list(produtos_fixos.keys()))
+        produto = st.selectbox("Selecione O Produto:", list(produtos_fixos.keys()))
         
         preco_un = produtos_fixos[produto]
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
         quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
-        total_pedido = preco_un * quantity if 'quantity' in locals() else preco_un * quantidade
+        total_pedido = preco_un * quantidade
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
         
         prazo_dias = st.number_input("Prazo de Pagamento (em dias):", min_value=0, max_value=365, value=30, step=1)
@@ -187,7 +187,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO) ---
+    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO - PARÁGRAFO CORRIGIDO) ---
     if is_admin:
         with tab_fornecedores:
             st.subheader("🏭 Cadastro de Fornecedores do Tigrão")
