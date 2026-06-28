@@ -985,6 +985,16 @@ def novo_pedido():
     st.warning(f"Comissão do vendedor: R$ {comissao:.2f}")
 
         # --- AJUSTE: INICIALIZA O CARRINHO DE COMPRAS NA MEMÓRIA ---
+        # --- CARRINHO EXIBIDO LOGO ABAIXO DA PESQUISA DO PRODUTO ---
+    if "carrinho" in rua.estado_da_sessão and rua.estado_da_sessão["carrinho"]:
+        rua.subtítulo("🛒 Itens do Pedido Atual")
+        df_carrinho = pd.DataFrame(rua.estado_da_sessão["carrinho"])
+        rua.dados_tabela(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
+        
+        if rua.botão("🗑️ Limpar Carrinho"):
+            rua.estado_da_sessão["carrinho"] = []
+            rua.reexecutar()
+
     if "carrinho" not in st.session_state:
         st.session_state["carrinho"] = []
 
