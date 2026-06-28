@@ -251,203 +251,58 @@ def consultar_clientes():
     st.dataframe(clientes, use_container_width=True)
 
 def cadastro_produtos():
-    st.header("📦 Produtos")
+    st.header("📦 Cadastro de Produtos")
 
     if st.session_state["tipo"] != "admin":
         st.error("Acesso bloqueado.")
         return
 
-    aba = st.radio(
-        "Escolha uma opção",
-        ["Cadastrar manualmente", "Importar produtos por Excel", "Exportar produtos para Excel"],
-        horizontal=True
-    )
+    with st.form("form_produto"):
+        codigo = st.text_input("Código do produto")
+        produto = st.text_input("Nome do produto")
+        preco = st.number_input("Preço", min_value=0.0, step=0.01)
 
-    if aba == "Cadastrar manualmente":
-        st.subheader("➕ Cadastrar produto manualmente")
-
-        with st.form("form_produto"):
-            codigo = st.text_input("Código do produto")
-            produto = st.text_input("Nome do produto")
-            preco = st.number_input("Preço", min_value=0.0, step=0.01)
-
-            desconto_maximo = st.number_input(
-                "Desconto máximo permitido (%)",
-                min_value=0.0,
-                max_value=100.0,
-                value=0.0,
-                step=0.5
-            )
-
-            salvar = st.form_submit_button("Salvar Produto")
-
-            if salvar:
-                produtos = carregar_excel(ARQ_PRODUTOS)
-                produtos["codigo"] = produtos["codigo"].astype(str).str.strip()
-
-                codigo_limpo = str(codigo).strip()
-                produto_limpo = str(produto).strip()
-
-                if codigo_limpo == "":
-                    st.error("Informe o código do produto.")
-                    return
-
-                if produto_limpo == "":
-                    st.error("Informe o nome do produto.")
-                    return
-
-                if produtos["codigo"].eq(codigo_limpo).any():
-                    st.error("Já existe um produto cadastrado com esse código.")
-                    return
-
-                novo = {
-                    "codigo": codigo_limpo,
-                    "produto": produto_limpo,
-                    "preco": float(preco),
-                    "desconto_maximo": float(desconto_maximo),
-                    "status": "ativo"
-                }
-
-                produtos = pd.concat([produtos, pd.DataFrame([novo])], ignore_index=True)
-                salvar_excel(produtos, ARQ_PRODUTOS)
-                st.success("Produto cadastrado com sucesso!")
-
-    elif aba == "Importar produtos por Excel":
-        st.subheader("📥 Importar cadastro de produtos por Excel")
-
-        st.info("A planilha deve ter pelo menos estas colunas: codigo, produto, preco. As colunas desconto_maximo e status são opcionais.")
-
-        modelo = pd.DataFrame([
-            {
-                "codigo": "001",
-                "produto": "CHÁ CAMOMILA TIGRÃO",
-                "preco": 3.50,
-                "desconto_maximo": 10,
-                "status": "ativo"
-            },
-            {
-                "codigo": "002",
-                "produto": "CHÁ BOLDO TIGRÃO",
-                "preco": 3.50,
-                "desconto_maximo": 10,
-                "status": "ativo"
-            }
-        ])
-
-        buffer_modelo = BytesIO()
-        modelo.to_excel(buffer_modelo, index=False, engine="openpyxl")
-        buffer_modelo.seek(0)
-
-        st.download_button(
-            label="📄 Baixar modelo de importação de produtos",
-            data=buffer_modelo,
-            file_name="modelo_importar_produtos_tigrao.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        desconto_maximo = st.number_input(
+            "Desconto máximo permitido (%)",
+            min_value=0.0,
+            max_value=100.0,
+            step=0.5
         )
 
-        arquivo = st.file_uploader(
-            "Selecione a planilha Excel com os produtos",
-            type=["xlsx"],
-            key="upload_produtos_excel"
-        )
+        salvar = st.form_submit_button("Salvar Produto")
 
-        if arquivo is not None:
-            try:
-                novos_produtos = pd.read_excel(arquivo)
-            except Exception as erro:
-                st.error(f"Erro ao ler a planilha: {erro}")
+        if salvar:
+            produtos = carregar_excel(ARQ_PRODUTOS)
+            produtos["codigo"] = produtos["codigo"].astype(str)
+
+            codigo_limpo = str(codigo).strip()
+            produto_limpo = str(produto).strip()
+
+            if codigo_limpo == "":
+                st.error("Informe o código do produto.")
                 return
 
-            st.write("Pré-visualização da planilha:")
-            st.dataframe(novos_produtos, use_container_width=True)
+            if produto_limpo == "":
+                st.error("Informe o nome do produto.")
+                return
 
-            if st.button("✅ Confirmar importação e cadastrar produtos no sistema"):
-                colunas_obrigatorias = ["codigo", "produto", "preco"]
+            codigo_existe = produtos["codigo"].astype(str).str.strip().eq(codigo_limpo).any()
 
-                for coluna in colunas_obrigatorias:
-                    if coluna not in novos_produtos.columns:
-                        st.error(f"A planilha precisa ter a coluna obrigatória: {coluna}")
-                        return
+            if codigo_existe:
+                st.error("Já existe um produto cadastrado com esse código.")
+                return
 
-                produtos_atual = carregar_excel(ARQ_PRODUTOS)
+            novo = {
+                "codigo": codigo_limpo,
+                "produto": produto_limpo,
+                "preco": float(preco),
+                "desconto_maximo": float(desconto_maximo),
+                "status": "ativo"
+            }
 
-                for coluna in ["codigo", "produto", "preco", "desconto_maximo", "status"]:
-                    if coluna not in produtos_atual.columns:
-                        if coluna == "desconto_maximo":
-                            produtos_atual[coluna] = 0.0
-                        elif coluna == "status":
-                            produtos_atual[coluna] = "ativo"
-                        else:
-                            produtos_atual[coluna] = ""
-
-                produtos_atual["codigo"] = produtos_atual["codigo"].astype(str).str.strip()
-
-                if "desconto_maximo" not in novos_produtos.columns:
-                    novos_produtos["desconto_maximo"] = 0.0
-
-                if "status" not in novos_produtos.columns:
-                    novos_produtos["status"] = "ativo"
-
-                novos_produtos = novos_produtos[["codigo", "produto", "preco", "desconto_maximo", "status"]].copy()
-
-                novos_produtos["codigo"] = novos_produtos["codigo"].astype(str).str.strip()
-                novos_produtos["produto"] = novos_produtos["produto"].astype(str).str.strip()
-                novos_produtos["preco"] = pd.to_numeric(novos_produtos["preco"], errors="coerce").fillna(0.0)
-                novos_produtos["desconto_maximo"] = pd.to_numeric(novos_produtos["desconto_maximo"], errors="coerce").fillna(0.0)
-                novos_produtos["status"] = novos_produtos["status"].astype(str).str.lower().str.strip()
-
-                novos_produtos.loc[~novos_produtos["status"].isin(["ativo", "inativo"]), "status"] = "ativo"
-
-                novos_produtos = novos_produtos[
-                    (novos_produtos["codigo"] != "") &
-                    (novos_produtos["codigo"].str.lower() != "nan") &
-                    (novos_produtos["produto"] != "") &
-                    (novos_produtos["produto"].str.lower() != "nan")
-                ]
-
-                qtd_linhas_validas = len(novos_produtos)
-
-                novos_produtos = novos_produtos.drop_duplicates(subset=["codigo"], keep="first")
-
-                codigos_existentes = set(produtos_atual["codigo"].astype(str).str.strip())
-                produtos_para_importar = novos_produtos[
-                    ~novos_produtos["codigo"].astype(str).str.strip().isin(codigos_existentes)
-                ]
-
-                ignorados = qtd_linhas_validas - len(produtos_para_importar)
-
-                produtos_final = pd.concat(
-                    [produtos_atual, produtos_para_importar],
-                    ignore_index=True
-                )
-
-                produtos_final = produtos_final[["codigo", "produto", "preco", "desconto_maximo", "status"]]
-
-                salvar_excel(produtos_final, ARQ_PRODUTOS)
-
-                st.success(f"Importação concluída! Produtos cadastrados no sistema: {len(produtos_para_importar)}")
-
-                if ignorados > 0:
-                    st.warning(f"Produtos ignorados por código duplicado, vazio ou inválido: {ignorados}")
-
-                st.rerun()
-
-    elif aba == "Exportar produtos para Excel":
-        st.subheader("📤 Exportar produtos para Excel")
-
-        produtos = carregar_excel(ARQ_PRODUTOS)
-
-        buffer = BytesIO()
-        produtos.to_excel(buffer, index=False, engine="openpyxl")
-        buffer.seek(0)
-
-        st.download_button(
-            label="📤 Baixar produtos cadastrados",
-            data=buffer,
-            file_name="produtos_tigrao.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
+            produtos = pd.concat([produtos, pd.DataFrame([novo])], ignore_index=True)
+            salvar_excel(produtos, ARQ_PRODUTOS)
+            st.success("Produto cadastrado com sucesso!")
 
 def consultar_produtos():
     st.header("🔎 Consultar Produtos")
@@ -957,25 +812,18 @@ def novo_pedido():
         step=0.5
     )
 
-    prazo_pagamento_dias = st.text_input(
-    "Prazo de pagamento (dias) - Ex: 28 ou 28/56/84/112",
-    value="0"
-)
-
+    prazo_pagamento_dias = st.number_input(
+        "Prazo de pagamento (dias)",
+        min_value=0,
+        max_value=365,
+        value=0,
+        step=1
+    )
 
     valor_desconto = subtotal * (desconto_percentual / 100)
     total = subtotal - valor_desconto
     percentual_comissao_vendedor = obter_comissao_vendedor(st.session_state["usuario"])
     comissao = total * percentual_comissao_vendedor
-       # --- CARRINHO EXIBIDO LOGO ABAIXO DA PESQUISA DO PRODUTO ---
-    if "carrinho" in rua.estado_da_sessão and rua.estado_da_sessão["carrinho"]:
-        rua.subtítulo("🛒 Itens do Pedido Atual")
-        df_carrinho = pd.DataFrame(rua.estado_da_sessão["carrinho"])
-        rua.dados_tabela(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
-        
-        if rua.botão("🗑️ Limpar Carrinho"):
-            rua.estado_da_sessão["carrinho"] = []
-            rua.reexecutar()
 
     st.info(f"Preço unitário: R$ {preco:.2f}")
     st.info(f"Subtotal: R$ {subtotal:.2f}")
@@ -984,23 +832,14 @@ def novo_pedido():
     st.info(f"Prazo de pagamento: {prazo_pagamento_dias} dias")
     st.warning(f"Comissão do vendedor: R$ {comissao:.2f}")
 
-        # --- AJUSTE: INICIALIZA O CARRINHO DE COMPRAS NA MEMÓRIA ---
-        # --- CARRINHO EXIBIDO LOGO ABAIXO DA PESQUISA DO PRODUTO ---
-    if "carrinho" in rua.estado_da_sessão and rua.estado_da_sessão["carrinho"]:
-        rua.subtítulo("🛒 Itens do Pedido Atual")
-        df_carrinho = pd.DataFrame(rua.estado_da_sessão["carrinho"])
-        rua.dados_tabela(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
-        
-        if rua.botão("🗑️ Limpar Carrinho"):
-            rua.estado_da_sessão["carrinho"] = []
-            rua.reexecutar()
+    if st.button("Salvar Pedido"):
+        pedidos = carregar_excel(ARQ_PEDIDOS)
 
-    if "carrinho" not in st.session_state:
-        st.session_state["carrinho"] = []
-
-    # --- BOTÃO PARA ADICIONAR ITEM AO CARRINHO ---
-    if st.button("➕ Adicionar Produto ao Pedido"):
-        item = {
+        novo = {
+            "numero": len(pedidos) + 1,
+            "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "vendedor": st.session_state["usuario"],
+            "cliente": cliente,
             "produto": produto_nome,
             "quantidade": quantidade,
             "preco": preco,
@@ -1008,57 +847,14 @@ def novo_pedido():
             "desconto_percentual": desconto_percentual,
             "valor_desconto": valor_desconto,
             "total": total,
+            "prazo_pagamento_dias": int(prazo_pagamento_dias),
             "comissao": comissao
         }
-        st.session_state["carrinho"].append(item)
-        st.toast(f"✔️ {produto_nome} adicionado ao carrinho!")
 
-    # --- EXIBE O CARRINHO SE HOUVER ITENS ---
-    if st.session_state["carrinho"]:
-        st.write("### 🛒 Itens do Pedido Atual")
-        df_carrinho = pd.DataFrame(st.session_state["carrinho"])
-        st.dataframe(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
-        
-        if st.button("🗑️ Limpar Carrinho"):
-            st.session_state["carrinho"] = []
-            st.rerun()
+        pedidos = pd.concat([pedidos, pd.DataFrame([novo])], ignore_index=True)
+        salvar_excel(pedidos, ARQ_PEDIDOS)
 
-    # --- BOTÃO FINAL: SALVAR O PEDIDO INTEIRO ---
-    if st.button("💾 Salvar Pedido Completo"):
-        if not st.session_state["carrinho"]:
-            st.error("Adicione pelo menos um produto antes de salvar o pedido!")
-        else:
-            pedidos = carregar_excel(ARQ_PEDIDOS)
-            prox_numero_pedido = len(pedidos["numero"].unique()) + 1 if "numero" in pedidos.columns and not pedidos.empty else 1
-            
-            novas_linhas = []
-            for item in st.session_state["carrinho"]:
-                linha_pedido = {
-                    "numero": prox_numero_pedido,
-                    "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "vendedor": st.session_state["usuario"],
-                    "cliente": cliente,
-                    "produto": item["produto"],
-                    "quantidade": item["quantidade"],
-                    "preco": item["preco"],
-                    "subtotal": item["subtotal"],
-                    "desconto_percentual": item["desconto_percentual"],
-                    "valor_desconto": item["valor_desconto"],
-                    "total": item["total"],
-                    "prazo_pagamento_dias": prazo_pagamento_dias,  # Guardando como texto livre conforme ajustamos antes
-                    "comissao": item["comissao"]
-                }
-                novas_linhas.append(linha_pedido)
-            
-            # Junta todas as linhas dos produtos e salva no Excel
-            pedidos = pd.concat([pedidos, pd.DataFrame(novas_linhas)], ignore_index=True)
-            salvar_excel(pedidos, ARQ_PEDIDOS)
-            
-            # Limpa o carrinho para a próxima venda
-            st.session_state["carrinho"] = []
-            st.success(f"🚀 Pedido nº {prox_numero_pedido} com {len(novas_linhas)} itens salvo com sucesso!")
-            st.rerun()
-
+        st.success(f"Pedido nº {len(pedidos)} salvo com sucesso!")
 
 def historico_pedidos():
     st.header("📋 Histórico de Pedidos" if st.session_state["tipo"] == "admin" else "📋 Meus Pedidos")
@@ -1103,54 +899,6 @@ def comissoes():
     st.subheader("Pedidos com comissão")
     st.dataframe(pedidos, use_container_width=True)
 
-
-def limpar_pedidos_invalidos():
-    st.subheader("🧹 Limpar Pedidos Inválidos")
-
-    pedidos = carregar_excel(ARQ_PEDIDOS)
-
-    if pedidos.empty:
-        st.info("Não há pedidos para limpar.")
-        return
-
-    total_antes = len(pedidos)
-
-    colunas_chave = ["numero", "vendedor", "cliente", "produto", "quantidade", "preco", "total"]
-
-    for coluna in colunas_chave:
-        if coluna not in pedidos.columns:
-            pedidos[coluna] = ""
-
-    pedidos_limpos = pedidos.copy()
-
-    pedidos_limpos = pedidos_limpos[
-        pedidos_limpos["cliente"].notna() &
-        pedidos_limpos["produto"].notna() &
-        pedidos_limpos["vendedor"].notna()
-    ]
-
-    pedidos_limpos = pedidos_limpos[
-        (pedidos_limpos["cliente"].astype(str).str.lower() != "none") &
-        (pedidos_limpos["produto"].astype(str).str.lower() != "none") &
-        (pedidos_limpos["vendedor"].astype(str).str.lower() != "none") &
-        (pedidos_limpos["cliente"].astype(str).str.strip() != "") &
-        (pedidos_limpos["produto"].astype(str).str.strip() != "") &
-        (pedidos_limpos["vendedor"].astype(str).str.strip() != "")
-    ]
-
-    removidos = total_antes - len(pedidos_limpos)
-
-    st.warning(f"Registros inválidos encontrados: {removidos}")
-
-    if removidos > 0:
-        if st.button("🧹 Confirmar limpeza do histórico"):
-            salvar_excel(pedidos_limpos, ARQ_PEDIDOS)
-            st.success(f"Histórico limpo com sucesso! Registros removidos: {removidos}")
-            st.rerun()
-    else:
-        st.success("Nenhum registro inválido encontrado.")
-
-
 def painel_admin():
     st.header("⚙️ Painel Administrativo")
 
@@ -1177,8 +925,6 @@ def painel_admin():
     st.success(f"Total vendido: R$ {total_vendido:,.2f}")
 
     ferramentas_excel_pedidos()
-
-    limpar_pedidos_invalidos()
 
     st.subheader("Transferir Cliente de Vendedor")
 
