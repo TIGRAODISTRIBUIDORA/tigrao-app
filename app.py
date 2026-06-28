@@ -986,10 +986,20 @@ else:
         novo_pedido()
     elif menu == "Gerenciar Vendedores":
         gerenciar_vendedores()
-   definição novo_pedido():
-    # --- CONFIGURAÇÃO INICIAL DO CLIENTE ---
-    filtrados = clientes
-    cliente = rua.caixa de seleção("Cliente", filtrados["nome"].lista())
+       # --- CARRINHO EXIBIDO LOGO ABAIXO DA PESQUISA DO PRODUTO ---
+    if "carrinho" in rua.estado_da_sessão and rua.estado_da_sessão["carrinho"]:
+        rua.subtítulo("🛒 Itens do Pedido Atual")
+        df_carrinho = pd.DataFrame(rua.estado_da_sessão["carrinho"])
+        rua.dados_tabela(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
+        
+        if rua.botão("🗑️ Limpar Carrinho"):
+            rua.estado_da_sessão["carrinho"] = []
+            rua.reexecutar()
+
+    # --- LINHAS DO PRODUTO QUE RECOLOQUEI ABAIXO DO CARRINHO ---
+    produto_linha = produtos[produtos["produto"] == nome do produto].iloc[0]
+    preço = flutuador(produto_linha["preco"])
+
     
     # --- PESQUISA E SELEÇÃO DO PRODUTO ---
     busca_produto = rua.entrada_de_texto("Pesquisar produto por nome ou código")
