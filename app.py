@@ -58,9 +58,13 @@ def limpar_colunas(df):
         .replace("ç", "c")
         .replace("ã", "a")
         .replace("á", "a")
+        .replace("à", "a")
+        .replace("â", "a")
         .replace("é", "e")
+        .replace("ê", "e")
         .replace("í", "i")
         .replace("ó", "o")
+        .replace("ô", "o")
         .replace("ú", "u")
         for c in df.columns
     ]
@@ -68,7 +72,10 @@ def limpar_colunas(df):
 
 
 def formatar_real(valor):
-    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    try:
+        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return "R$ 0,00"
 
 
 st.markdown("""
@@ -203,8 +210,8 @@ if menu == "Dashboard":
 
     st.markdown("<div class='titulo'>📊 Dashboard</div>", unsafe_allow_html=True)
 
-    total_vendas = pedidos["total"].sum() if len(pedidos) else 0
-    qtd_pedidos = pedidos["pedido"].nunique() if len(pedidos) else 0
+    total_vendas = pedidos["total"].sum() if len(pedidos) and "total" in pedidos.columns else 0
+    qtd_pedidos = pedidos["pedido"].nunique() if len(pedidos) and "pedido" in pedidos.columns else 0
     comissao = total_vendas * COMISSAO
 
     a, b, c = st.columns(3)
@@ -256,7 +263,7 @@ elif menu == "Novo Pedido":
 
         with col1:
             st.markdown(
-                f"<div class='sugestao'><span class='codigo'>{row['codigo']}</span> - {row['produto']} | {formatar_real(float(row['preco']))}</div>",
+                f"<div class='sugestao'><span class='codigo'>{row['codigo']}</span> - {row['produto']} | {formatar_real(row['preco'])}</div>",
                 unsafe_allow_html=True
             )
 
@@ -378,7 +385,7 @@ elif menu == "Novo Pedido":
             st.rerun()
 
 
-# PEDIDOS
+# PEDIDOS LANÇADOS
 elif menu == "Pedidos Lançados":
     st.markdown("<div class='titulo'>📋 Pedidos Lançados</div>", unsafe_allow_html=True)
 
@@ -389,7 +396,43 @@ elif menu == "Pedidos Lançados":
     else:
         st.dataframe(pedidos, use_container_width=True)
 
-        arquivo = pedidos.to_excel("pedidos_exportados.xlsx", index=False)
+        st.markdown("---")
+        st.markdown("### 🗑️ Excluir Pedido")
+
+        lista_pedidos = sorted(pedidos["pedido"].dropna().unique())
+
+        pedido_excluir = st.selectbox(
+            "Selecione o número do pedido que deseja excluir",
+            lista_pedidos
+        )
+
+        dados_pedido = pedidos[pedidos["pedido"] == pedido_excluir]
+
+        if len(dados_pedido):
+            cliente_pedido = dados_pedido["cliente"].iloc[0]
+            total_pedido = dados_pedido["total"].sum()
+
+            st.warning(
+                f"Você está prestes a excluir o pedido nº {pedido_excluir} "
+                f"do cliente {cliente_pedido}, total {formatar_real(total_pedido)}."
+            )
+
+        confirmar = st.checkbox(
+            f"Confirmo que desejo excluir o pedido nº {pedido_excluir}"
+        )
+
+        if st.button("🗑️ EXCLUIR PEDIDO"):
+            if not confirmar:
+                st.warning("Marque a confirmação antes de excluir.")
+            else:
+                pedidos = pedidos[pedidos["pedido"] != pedido_excluir]
+                salvar_excel(pedidos, ARQ_PEDIDOS)
+                st.success(f"Pedido nº {pedido_excluir} excluído com sucesso.")
+                st.rerun()
+
+        st.markdown("---")
+
+        pedidos.to_excel("pedidos_exportados.xlsx", index=False)
 
         with open("pedidos_exportados.xlsx", "rb") as f:
             st.download_button(
@@ -479,7 +522,7 @@ elif menu == "Produtos":
 elif menu == "Importar Produtos":
     st.markdown("<div class='titulo'>📥 Importar Produtos por Excel</div>", unsafe_allow_html=True)
 
-    st.info("A planilha precisa ter código, produto, unidade e preço. O sistema aceita nomes como Código, Produto, Unidade, Preço.")
+    st.info("A planilha precisa ter código, produto, unidade e preço.")
 
     arquivo = st.file_uploader("Escolha a planilha de produtos", type=["xlsx", "xls", "csv"])
 
@@ -506,7 +549,6 @@ elif menu == "Importar Produtos":
         novo_df = novo_df.rename(columns=mapa)
 
         obrigatorias = ["codigo", "produto", "preco"]
-
         faltando = [c for c in obrigatorias if c not in novo_df.columns]
 
         if faltando:
