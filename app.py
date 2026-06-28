@@ -27,8 +27,28 @@ def salvar_excel(df, caminho):
 def criar_bancos():
     if not os.path.exists(ARQ_USUARIOS):
         pd.DataFrame([
-            {"usuario": "admin", "senha": "123", "nome": "Nelson", "tipo": "admin", "ativo": "sim"},
-            {"usuario": "joao", "senha": "123", "nome": "João Vendedor", "tipo": "vendedor", "ativo": "sim"}
+            {
+                "usuario": "admin",
+                "senha": "123",
+                "nome": "Nelson",
+                "tipo": "admin",
+                "telefone": "",
+                "email": "",
+                "comissao_percentual": 0.0,
+                "meta_mensal": 0.0,
+                "ativo": "sim"
+            },
+            {
+                "usuario": "joao",
+                "senha": "123",
+                "nome": "João Vendedor",
+                "tipo": "vendedor",
+                "telefone": "",
+                "email": "",
+                "comissao_percentual": 7.0,
+                "meta_mensal": 0.0,
+                "ativo": "sim"
+            }
         ]).to_excel(ARQ_USUARIOS, index=False)
 
     if not os.path.exists(ARQ_CLIENTES):
@@ -76,8 +96,29 @@ def ajustar_bancos():
 
     usuarios = carregar_excel(ARQ_USUARIOS)
 
-    if "ativo" not in usuarios.columns:
-        usuarios["ativo"] = "sim"
+    colunas_usuarios = {
+        "telefone": "",
+        "email": "",
+        "comissao_percentual": 7.0,
+        "meta_mensal": 0.0,
+        "ativo": "sim"
+    }
+
+    for coluna, valor in colunas_usuarios.items():
+        if coluna not in usuarios.columns:
+            usuarios[coluna] = valor
+
+    usuarios["usuario"] = usuarios["usuario"].astype(str)
+    usuarios["senha"] = usuarios["senha"].astype(str)
+    usuarios["nome"] = usuarios["nome"].astype(str)
+    usuarios["tipo"] = usuarios["tipo"].astype(str)
+    usuarios["telefone"] = usuarios["telefone"].astype(str)
+    usuarios["email"] = usuarios["email"].astype(str)
+    usuarios["ativo"] = usuarios["ativo"].astype(str)
+    usuarios["comissao_percentual"] = pd.to_numeric(usuarios["comissao_percentual"], errors="coerce").fillna(7.0)
+    usuarios["meta_mensal"] = pd.to_numeric(usuarios["meta_mensal"], errors="coerce").fillna(0.0)
+
+    usuarios.loc[usuarios["tipo"].str.lower() == "admin", "comissao_percentual"] = 0.0
 
     salvar_excel(usuarios, ARQ_USUARIOS)
 
@@ -92,7 +133,7 @@ def ajustar_bancos():
 
     if "total" in pedidos.columns:
         pedidos["total"] = pd.to_numeric(pedidos["total"], errors="coerce").fillna(0.0)
-        pedidos["comissao"] = pedidos["total"] * COMISSAO_PADRAO
+        pedidos["comissao"] = pd.to_numeric(pedidos["comissao"], errors="coerce").fillna(pedidos["total"] * COMISSAO_PADRAO)
 
     salvar_excel(pedidos, ARQ_PEDIDOS)
 
@@ -127,12 +168,26 @@ def sair():
     st.session_state.clear()
     st.rerun()
 
+def obter_comissao_vendedor(usuario):
+    usuarios = carregar_excel(ARQ_USUARIOS)
+    linha = usuarios[usuarios["usuario"].astype(str) == str(usuario)]
+
+    if linha.empty:
+        return COMISSAO_PADRAO
+
+    percentual = pd.to_numeric(linha.iloc[0].get("comissao_percentual", 7.0), errors="coerce")
+
+    if pd.isna(percentual):
+        percentual = 7.0
+
+    return float(percentual) / 100
+
 def cadastro_clientes():
     st.header("👥 Cadastro de Clientes")
 
     usuarios = carregar_excel(ARQ_USUARIOS)
     vendedores = usuarios[
-        (usuarios["tipo"] == "vendedor") &
+        (usuarios["tipo"].astype(str) == "vendedor") &
         (usuarios["ativo"].astype(str).str.lower() == "sim")
     ]["usuario"].tolist()
 
@@ -159,10 +214,10 @@ def cadastro_clientes():
 
             novo = {
                 "codigo": len(clientes) + 1,
-                "nome": nome,
-                "cnpj": cnpj,
-                "telefone": telefone,
-                "cidade": cidade,
+                "nome": nome.strip(),
+                "cnpj": cnpj.strip(),
+                "telefone": telefone.strip(),
+                "cidade": cidade.strip(),
                 "vendedor": vendedor,
                 "status": "ativo",
                 "data_cadastro": datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -376,6 +431,217 @@ def editar_produtos():
             st.success(f"Produto atualizado! Desconto salvo: {novo_desconto:.1f}%")
             st.rerun()
 
+def gerenciar_vendedores():
+    st.header("👨‍💼 Gerenciar Vendedores")
+
+    if st.session_state["tipo"] != "admin":
+        st.error("Acesso bloqueado.")
+        return
+
+    usuarios = carregar_excel(ARQ_USUARIOS)
+
+    aba = st.radio(
+        "Escolha uma opção",
+        ["Cadastrar vendedor", "Editar vendedor", "Resumo dos vendedores"],
+        horizontal=True
+    )
+
+    if aba == "Cadastrar vendedor":
+        st.subheader("➕ Cadastrar novo vendedor")
+
+        with st.form("form_cadastrar_vendedor"):
+            nome = st.text_input("Nome do vendedor")
+            usuario = st.text_input("Usuário de login")
+            senha = st.text_input("Senha", type="password")
+            telefone = st.text_input("Telefone")
+            email = st.text_input("E-mail")
+            comissao_percentual = st.number_input("Comissão (%)", min_value=0.0, max_value=100.0, value=7.0, step=0.5)
+            meta_mensal = st.number_input("Meta mensal (R$)", min_value=0.0, step=100.0)
+            ativo = st.selectbox("Status", ["sim", "nao"])
+
+            salvar = st.form_submit_button("Salvar vendedor")
+
+            if salvar:
+                usuario_limpo = str(usuario).strip()
+                nome_limpo = str(nome).strip()
+
+                if nome_limpo == "":
+                    st.error("Informe o nome do vendedor.")
+                    return
+
+                if usuario_limpo == "":
+                    st.error("Informe o usuário de login.")
+                    return
+
+                if str(senha).strip() == "":
+                    st.error("Informe a senha.")
+                    return
+
+                if usuarios["usuario"].astype(str).str.strip().eq(usuario_limpo).any():
+                    st.error("Já existe um usuário com esse login.")
+                    return
+
+                novo = {
+                    "usuario": usuario_limpo,
+                    "senha": str(senha).strip(),
+                    "nome": nome_limpo,
+                    "tipo": "vendedor",
+                    "telefone": str(telefone).strip(),
+                    "email": str(email).strip(),
+                    "comissao_percentual": float(comissao_percentual),
+                    "meta_mensal": float(meta_mensal),
+                    "ativo": ativo
+                }
+
+                usuarios = pd.concat([usuarios, pd.DataFrame([novo])], ignore_index=True)
+                salvar_excel(usuarios, ARQ_USUARIOS)
+                st.success("Vendedor cadastrado com sucesso!")
+                st.rerun()
+
+    elif aba == "Editar vendedor":
+        st.subheader("✏️ Editar vendedor")
+
+        vendedores = usuarios[usuarios["tipo"].astype(str) == "vendedor"]
+
+        if vendedores.empty:
+            st.warning("Nenhum vendedor cadastrado.")
+            return
+
+        busca = st.text_input("Pesquisar vendedor por nome ou usuário")
+
+        vendedores_filtrados = vendedores.copy()
+
+        if busca:
+            busca = busca.lower()
+            vendedores_filtrados = vendedores[
+                vendedores["nome"].astype(str).str.lower().str.contains(busca) |
+                vendedores["usuario"].astype(str).str.lower().str.contains(busca)
+            ]
+
+        if vendedores_filtrados.empty:
+            st.warning("Nenhum vendedor encontrado.")
+            return
+
+        escolha = st.selectbox(
+            "Selecione o vendedor",
+            vendedores_filtrados.index.tolist(),
+            format_func=lambda i: f"{usuarios.loc[i, 'usuario']} - {usuarios.loc[i, 'nome']} - {usuarios.loc[i, 'ativo']}"
+        )
+
+        linha = usuarios.loc[escolha]
+
+        with st.form("form_editar_vendedor"):
+            novo_usuario = st.text_input("Usuário de login", value=str(linha["usuario"]))
+            novo_nome = st.text_input("Nome", value=str(linha["nome"]))
+            nova_senha = st.text_input("Senha", value=str(linha["senha"]))
+            novo_telefone = st.text_input("Telefone", value=str(linha.get("telefone", "")))
+            novo_email = st.text_input("E-mail", value=str(linha.get("email", "")))
+            nova_comissao = st.number_input(
+                "Comissão (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(linha.get("comissao_percentual", 7.0)),
+                step=0.5
+            )
+            nova_meta = st.number_input(
+                "Meta mensal (R$)",
+                min_value=0.0,
+                value=float(linha.get("meta_mensal", 0.0)),
+                step=100.0
+            )
+
+            ativo_atual = str(linha.get("ativo", "sim")).lower()
+            ativo_index = 0 if ativo_atual == "sim" else 1
+            novo_ativo = st.selectbox("Status", ["sim", "nao"], index=ativo_index)
+
+            salvar = st.form_submit_button("Salvar alterações")
+
+            if salvar:
+                usuario_limpo = str(novo_usuario).strip()
+                nome_limpo = str(novo_nome).strip()
+
+                if usuario_limpo == "":
+                    st.error("O usuário não pode ficar vazio.")
+                    return
+
+                if nome_limpo == "":
+                    st.error("O nome não pode ficar vazio.")
+                    return
+
+                outros = usuarios.drop(index=escolha)
+                usuario_existe = outros["usuario"].astype(str).str.strip().eq(usuario_limpo).any()
+
+                if usuario_existe:
+                    st.error("Já existe outro vendedor com esse usuário.")
+                    return
+
+                usuario_antigo = str(usuarios.loc[escolha, "usuario"])
+
+                usuarios.at[escolha, "usuario"] = usuario_limpo
+                usuarios.at[escolha, "senha"] = str(nova_senha).strip()
+                usuarios.at[escolha, "nome"] = nome_limpo
+                usuarios.at[escolha, "tipo"] = "vendedor"
+                usuarios.at[escolha, "telefone"] = str(novo_telefone).strip()
+                usuarios.at[escolha, "email"] = str(novo_email).strip()
+                usuarios.at[escolha, "comissao_percentual"] = float(nova_comissao)
+                usuarios.at[escolha, "meta_mensal"] = float(nova_meta)
+                usuarios.at[escolha, "ativo"] = novo_ativo
+
+                salvar_excel(usuarios, ARQ_USUARIOS)
+
+                if usuario_antigo != usuario_limpo:
+                    clientes = carregar_excel(ARQ_CLIENTES)
+                    pedidos = carregar_excel(ARQ_PEDIDOS)
+
+                    clientes.loc[clientes["vendedor"].astype(str) == usuario_antigo, "vendedor"] = usuario_limpo
+                    pedidos.loc[pedidos["vendedor"].astype(str) == usuario_antigo, "vendedor"] = usuario_limpo
+
+                    salvar_excel(clientes, ARQ_CLIENTES)
+                    salvar_excel(pedidos, ARQ_PEDIDOS)
+
+                st.success("Vendedor atualizado com sucesso!")
+                st.rerun()
+
+    elif aba == "Resumo dos vendedores":
+        st.subheader("📊 Resumo dos vendedores")
+
+        vendedores = usuarios[usuarios["tipo"].astype(str) == "vendedor"].copy()
+        clientes = carregar_excel(ARQ_CLIENTES)
+        pedidos = carregar_excel(ARQ_PEDIDOS)
+
+        if vendedores.empty:
+            st.warning("Nenhum vendedor cadastrado.")
+            return
+
+        resumo = []
+
+        for _, vendedor in vendedores.iterrows():
+            usuario_vendedor = str(vendedor["usuario"])
+
+            clientes_vendedor = clientes[clientes["vendedor"].astype(str) == usuario_vendedor]
+            pedidos_vendedor = pedidos[pedidos["vendedor"].astype(str) == usuario_vendedor]
+
+            total_vendido = pd.to_numeric(pedidos_vendedor.get("total", 0), errors="coerce").fillna(0).sum() if not pedidos_vendedor.empty else 0
+            total_comissao = pd.to_numeric(pedidos_vendedor.get("comissao", 0), errors="coerce").fillna(0).sum() if not pedidos_vendedor.empty else 0
+            meta = float(vendedor.get("meta_mensal", 0.0))
+            atingimento = (total_vendido / meta * 100) if meta > 0 else 0
+
+            resumo.append({
+                "usuario": usuario_vendedor,
+                "nome": vendedor["nome"],
+                "status": vendedor["ativo"],
+                "comissao_%": vendedor.get("comissao_percentual", 7.0),
+                "meta_mensal": meta,
+                "clientes": len(clientes_vendedor),
+                "pedidos": len(pedidos_vendedor),
+                "total_vendido": total_vendido,
+                "comissao_acumulada": total_comissao,
+                "atingimento_meta_%": atingimento
+            })
+
+        resumo_df = pd.DataFrame(resumo)
+        st.dataframe(resumo_df, use_container_width=True)
+
 def gerenciar_status():
     st.header("🔒 Gerenciar Status")
 
@@ -421,7 +687,11 @@ def gerenciar_status():
 
     elif opcao == "Vendedor":
         usuarios = carregar_excel(ARQ_USUARIOS)
-        vendedores = usuarios[usuarios["tipo"] == "vendedor"]
+        vendedores = usuarios[usuarios["tipo"].astype(str) == "vendedor"]
+
+        if vendedores.empty:
+            st.warning("Nenhum vendedor cadastrado.")
+            return
 
         item = st.selectbox(
             "Selecione o vendedor",
@@ -552,7 +822,8 @@ def novo_pedido():
 
     valor_desconto = subtotal * (desconto_percentual / 100)
     total = subtotal - valor_desconto
-    comissao = total * COMISSAO_PADRAO
+    percentual_comissao_vendedor = obter_comissao_vendedor(st.session_state["usuario"])
+    comissao = total * percentual_comissao_vendedor
 
     st.info(f"Preço unitário: R$ {preco:.2f}")
     st.info(f"Subtotal: R$ {subtotal:.2f}")
@@ -616,7 +887,7 @@ def comissoes():
 
     col1, col2 = st.columns(2)
     col1.metric("Total vendido", f"R$ {total_vendas:,.2f}")
-    col2.metric("Comissão 7%", f"R$ {total_comissao:,.2f}")
+    col2.metric("Comissão", f"R$ {total_comissao:,.2f}")
 
     resumo = pedidos.groupby("vendedor", as_index=False).agg({
         "total": "sum",
@@ -648,7 +919,7 @@ def painel_admin():
     col1.metric("Clientes", len(clientes))
     col2.metric("Produtos", len(produtos))
     col3.metric("Pedidos", len(pedidos))
-    col4.metric("Vendedores", len(usuarios[usuarios["tipo"] == "vendedor"]))
+    col4.metric("Vendedores", len(usuarios[usuarios["tipo"].astype(str) == "vendedor"]))
     col5.metric("Comissões", f"R$ {total_comissao:,.2f}")
 
     st.success(f"Total vendido: R$ {total_vendido:,.2f}")
@@ -660,7 +931,7 @@ def painel_admin():
     if not clientes.empty:
         cliente_nome = st.selectbox("Cliente", clientes["nome"].tolist())
         vendedores = usuarios[
-            (usuarios["tipo"] == "vendedor") &
+            (usuarios["tipo"].astype(str) == "vendedor") &
             (usuarios["ativo"].astype(str).str.lower() == "sim")
         ]["usuario"].tolist()
 
@@ -684,6 +955,7 @@ else:
             "Menu",
             [
                 "Painel Administrativo",
+                "Gerenciar Vendedores",
                 "Novo Pedido",
                 "Cadastrar Cliente",
                 "Consultar Clientes",
@@ -712,6 +984,8 @@ else:
 
     if menu == "Novo Pedido":
         novo_pedido()
+    elif menu == "Gerenciar Vendedores":
+        gerenciar_vendedores()
     elif menu == "Cadastrar Cliente":
         cadastro_clientes()
     elif menu in ["Consultar Clientes", "Meus Clientes"]:
