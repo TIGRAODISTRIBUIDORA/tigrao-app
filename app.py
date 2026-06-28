@@ -986,10 +986,118 @@ else:
         novo_pedido()
     elif menu == "Gerenciar Vendedores":
         gerenciar_vendedores()
-    elif menu == "Cadastrar Cliente":
-        cadastro_clientes()
-    elif menu in ["Consultar Clientes", "Meus Clientes"]:
-        consultar_clientes()
+   definição novo_pedido():
+    # --- CONFIGURAÇÃO INICIAL DO CLIENTE ---
+    filtrados = clientes
+    cliente = rua.caixa de seleção("Cliente", filtrados["nome"].lista())
+    
+    # --- PESQUISA E SELEÇÃO DO PRODUTO ---
+    busca_produto = rua.entrada_de_texto("Pesquisar produto por nome ou código")
+    
+    se busca_produto:
+        produtos_filtrados = produtos[
+            produtos["produto"].como tipo(str).str.mais baixo().str.contém(busca_produto.mais baixo()) |
+            produtos["código"].como tipo(str).str.mais baixo().str.contém(busca_produto.mais baixo())
+        ]
+    outro:
+        produtos_filtrados = produtos
+        
+    se produtos_filtrados.vazio:
+        rua.aviso("Nenhum produto encontrado.")
+        retornar
+        
+    nome do produto = rua.caixa de seleção("Produto", produtos_filtrados["produto"].lista())
+    produto_linha = produtos[produtos["produto"] == nome do produto].iloc[0]
+    
+    preço = flutuador(produto_linha["preco"])
+    
+    # =========================================================================
+    # 🛒 CARRINHO DE COMPRAS (POSICIONADO LOGO ABAIXO DA SELEÇÃO DO PRODUTO)
+    # =========================================================================
+    if "carrinho" not in rua.estado_da_sessão:
+        rua.estado_da_sessão["carrinho"] = []
+
+    if rua.estado_da_sessão["carrinho"]:
+        rua.subtítulo("🛒 Itens do Pedido Atual")
+        df_carrinho = pd.DataFrame(rua.estado_da_sessão["carrinho"])
+        rua.dados_tabela(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
+        
+        if rua.botão("🗑️ Limpar Carrinho"):
+            rua.estado_da_sessão["carrinho"] = []
+            rua.reexecutar()
+    # =========================================================================
+
+    # --- CAMPOS DE QUANTIDADE E DESCONTO ---
+    quantidade = rua.entrada_número("Quantidade", valor_mínimo=1, valor=1, passo=1)
+    desconto_percentual = rua.entrada_número("Desconto (%) - máximo permitido: 10.0%", valor_mínimo=0.0, valor_máximo=10.0, valor=0.0, passo=0.5)
+    prazo_pagamento_dias = rua.entrada_de_texto("Prazo de pagamento (dias) - Ex: 28 ou 28/56/84/112", value="0")
+    
+    # --- CÁLCULOS FINANCEIROS ---
+    subtotal = quantidade * preço
+    valor_desconto = subtotal * (desconto_percentual / 100)
+    total = subtotal - valor_desconto
+    percentual_comissao_vendedor = obter_comissao_vendedor(st.session_state["usuario"])
+    comissao = total * percentual_comissao_vendedor
+    
+    # --- RESUMO VISUAL EM TELA ---
+    rua.informação(f"Preço unitário: R$ {preço:.2f}")
+    rua.informação(f"Subtotal: R$ {subtotal:.2f}")
+    rua.aviso(f"Valor do desconto: R$ {valor_desconto:.2f}")
+    rua.sucesso(f"Total do pedido: R$ {total:.2f}")
+    rua.informação(f"Prazo de pagamento: {prazo_pagamento_dias}")
+    rua.aviso(f"Comissão do vendedor: R$ {comissao:.2f}")
+    
+    # --- BOTÕES DE AÇÃO ---
+    col_add, col_salvar = rua.colunas(2)
+    
+    with col_add:
+        if rua.botão("➕ Adicionar Produto ao Pedido"):
+            item = {
+                "produto": nome do produto,
+                "quantidade": quantidade,
+                "preco": preço,
+                "subtotal": subtotal,
+                "desconto_percentual": desconto_percentual,
+                "valor_desconto": valor_desconto,
+                "total": total,
+                "comissao": comissao
+            }
+            rua.estado_da_sessão["carrinho"].append(item)
+            rua.toast(f"✔️ {nome do produto} adicionado!")
+            rua.reexecutar()
+            
+    with col_salvar:
+        if rua.botão("💾 Salvar Pedido Completo"):
+            if not rua.estado_da_sessão["carrinho"]:
+                rua.erro("Adicione pelo menos um produto ao carrinho!")
+            else:
+                pedidos = carregar_excel(ARQ_PEDIDOS)
+                prox_numero = len(pedidos["numero"].unique()) + 1 if "numero" in pedidos.columns and not pedidos.empty else 1
+                
+                novas_linhas = []
+                for item in rua.estado_da_sessão["carrinho"]:
+                    novas_linhas.append({
+                        "numero": prox_numero,
+                        "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "vendedor": st.session_state["usuario"],
+                        "cliente": cliente,
+                        "produto": item["produto"],
+                        "quantidade": item["quantidade"],
+                        "preco": item["preco"],
+                        "subtotal": item["subtotal"],
+                        "desconto_percentual": item["desconto_percentual"],
+                        "valor_desconto": item["valor_desconto"],
+                        "total": item["total"],
+                        "prazo_pagamento_dias": prazo_pagamento_dias,
+                        "comissao": item["comissao"]
+                    })
+                
+                pedidos = pd.concat([pedidos, pd.DataFrame(novas_linhas)], ignore_index=True)
+                salvar_excel(pedidos, ARQ_PEDIDOS)
+                rua.estado_da_sessão["carrinho"] = []
+                rua.sucesso(f"Pedido nº {prox_numero} salvo!")
+                rua.reexecutar()
+
     elif menu == "Cadastrar Produto":
         cadastro_produtos()
     elif menu == "Consultar Produto":
