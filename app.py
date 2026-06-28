@@ -202,9 +202,12 @@ menu = st.sidebar.radio(
         "Pedidos Lançados",
         "Clientes",
         "Produtos",
+        "Fornecedores",
         "Importar Produtos",
         "Comissões",
         "Sair"
+    ]
+)
     ]
 )
 
