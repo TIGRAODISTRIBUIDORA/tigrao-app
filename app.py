@@ -975,14 +975,13 @@ def novo_pedido():
     st.info(f"Prazo de pagamento: {prazo_pagamento_dias} dias")
     st.warning(f"Comissão do vendedor: R$ {comissao:.2f}")
 
-    if st.button("Salvar Pedido"):
-        pedidos = carregar_excel(ARQ_PEDIDOS)
+        # --- AJUSTE: INICIALIZA O CARRINHO DE COMPRAS NA MEMÓRIA ---
+    if "carrinho" not in st.session_state:
+        st.session_state["carrinho"] = []
 
-        novo = {
-            "numero": len(pedidos) + 1,
-            "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "vendedor": st.session_state["usuario"],
-            "cliente": cliente,
+    # --- BOTÃO PARA ADICIONAR ITEM AO CARRINHO ---
+    if st.button("➕ Adicionar Produto ao Pedido"):
+        item = {
             "produto": produto_nome,
             "quantidade": quantidade,
             "preco": preco,
@@ -990,14 +989,57 @@ def novo_pedido():
             "desconto_percentual": desconto_percentual,
             "valor_desconto": valor_desconto,
             "total": total,
-            "prazo_pagamento_dias": int(prazo_pagamento_dias),
             "comissao": comissao
         }
+        st.session_state["carrinho"].append(item)
+        st.toast(f"✔️ {produto_nome} adicionado ao carrinho!")
 
-        pedidos = pd.concat([pedidos, pd.DataFrame([novo])], ignore_index=True)
-        salvar_excel(pedidos, ARQ_PEDIDOS)
+    # --- EXIBE O CARRINHO SE HOUVER ITENS ---
+    if st.session_state["carrinho"]:
+        st.write("### 🛒 Itens do Pedido Atual")
+        df_carrinho = pd.DataFrame(st.session_state["carrinho"])
+        st.dataframe(df_carrinho[["produto", "quantidade", "preco", "total"]], use_container_width=True)
+        
+        if st.button("🗑️ Limpar Carrinho"):
+            st.session_state["carrinho"] = []
+            st.rerun()
 
-        st.success(f"Pedido nº {len(pedidos)} salvo com sucesso!")
+    # --- BOTÃO FINAL: SALVAR O PEDIDO INTEIRO ---
+    if st.button("💾 Salvar Pedido Completo"):
+        if not st.session_state["carrinho"]:
+            st.error("Adicione pelo menos um produto antes de salvar o pedido!")
+        else:
+            pedidos = carregar_excel(ARQ_PEDIDOS)
+            prox_numero_pedido = len(pedidos["numero"].unique()) + 1 if "numero" in pedidos.columns and not pedidos.empty else 1
+            
+            novas_linhas = []
+            for item in st.session_state["carrinho"]:
+                linha_pedido = {
+                    "numero": prox_numero_pedido,
+                    "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "vendedor": st.session_state["usuario"],
+                    "cliente": cliente,
+                    "produto": item["produto"],
+                    "quantidade": item["quantidade"],
+                    "preco": item["preco"],
+                    "subtotal": item["subtotal"],
+                    "desconto_percentual": item["desconto_percentual"],
+                    "valor_desconto": item["valor_desconto"],
+                    "total": item["total"],
+                    "prazo_pagamento_dias": prazo_pagamento_dias,  # Guardando como texto livre conforme ajustamos antes
+                    "comissao": item["comissao"]
+                }
+                novas_linhas.append(linha_pedido)
+            
+            # Junta todas as linhas dos produtos e salva no Excel
+            pedidos = pd.concat([pedidos, pd.DataFrame(novas_linhas)], ignore_index=True)
+            salvar_excel(pedidos, ARQ_PEDIDOS)
+            
+            # Limpa o carrinho para a próxima venda
+            st.session_state["carrinho"] = []
+            st.success(f"🚀 Pedido nº {prox_numero_pedido} com {len(novas_linhas)} itens salvo com sucesso!")
+            st.rerun()
+
 
 def historico_pedidos():
     st.header("📋 Histórico de Pedidos" if st.session_state["tipo"] == "admin" else "📋 Meus Pedidos")
