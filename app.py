@@ -126,7 +126,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'].values[0])} | CNPJ: {dados_busca.iloc['CNPJ'].values[0]}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
         
         st.markdown("---")
         st.subheader("2. Vincular Fornecedor")
@@ -187,7 +187,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO - PARÁGRAFO CORRIGIDO) ---
+    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO - LINEAR E BLINDADO) ---
     if is_admin:
         with tab_fornecedores:
             st.subheader("🏭 Cadastro de Fornecedores do Tigrão")
@@ -197,11 +197,13 @@ else:
                 btn_salvar_forn = st.form_submit_button("💾 Gravar Fornecedor no Banco")
                 
             if btn_salvar_forn and nome_fornecedor.strip():
-                try:
-                    prox_cod_f = int(df_fornecedores["Codigo"].max() + 1) if not df_fornecedores.empty else 1
-                    novo_f_df = pd.DataFrame([{"Codigo": prox_cod_f, "Fornecedor": nome_fornecedor.strip(), "CNPJ": cnpj_fornecedor.strip()}])
-                    df_forn_atualizado = pd.concat([df_fornecedores, novo_f_df], ignore_index=True)
-                    df_forn_atualizado.to_excel(CAMINHO_FORNECEDORES, index=False)
-                    st.success(f"🎉 Fornecedor '{nome_fornecedor}' cadastrado com sucesso!")
-                    st.rerun()
-                except Exception:
+                prox_cod_f = int(df_fornecedores["Codigo"].max() + 1) if not df_fornecedores.empty else 1
+                novo_f_df = pd.DataFrame([{"Codigo": prox_cod_f, "Fornecedor": nome_fornecedor.strip(), "CNPJ": cnpj_fornecedor.strip()}])
+                df_forn_atualizado = pd.concat([df_fornecedores, novo_f_df], ignore_index=True)
+                df_forn_atualizado.to_excel(CAMINHO_FORNECEDORES, index=False)
+                st.success(f"🎉 Fornecedor '{nome_fornecedor}' cadastrado com sucesso!")
+                st.rerun()
+
+    # --- ABA 4: 🔍 CONSULTAR PRODUTOS ---
+    with tab_consulta_prod:
+        st.subheader("🔍 Catálogo e Tabela de Preços")
