@@ -129,7 +129,7 @@ def ajustar_bancos():
             pedidos[coluna] = 0.0
 
     if "prazo_pagamento_dias" not in pedidos.columns:
-        pedidos["prazo_pagamento_dias"] = 0
+        pedidos["prazo_pagamento_dias"] = 7,14,21,28,35,42
 
     if "total" in pedidos.columns:
         pedidos["total"] = pd.to_numeric(pedidos["total"], errors="coerce").fillna(0.0)
