@@ -28,24 +28,21 @@ def criar_bancos():
         usuarios.to_excel(ARQ_USUARIOS, index=False)
 
     if not os.path.exists(ARQ_CLIENTES):
-        clientes = pd.DataFrame(columns=[
+        pd.DataFrame(columns=[
             "codigo", "nome", "cnpj", "telefone", "cidade",
             "vendedor", "status", "data_cadastro"
-        ])
-        clientes.to_excel(ARQ_CLIENTES, index=False)
+        ]).to_excel(ARQ_CLIENTES, index=False)
 
     if not os.path.exists(ARQ_PRODUTOS):
-        produtos = pd.DataFrame(columns=[
+        pd.DataFrame(columns=[
             "codigo", "produto", "preco", "status"
-        ])
-        produtos.to_excel(ARQ_PRODUTOS, index=False)
+        ]).to_excel(ARQ_PRODUTOS, index=False)
 
     if not os.path.exists(ARQ_PEDIDOS):
-        pedidos = pd.DataFrame(columns=[
+        pd.DataFrame(columns=[
             "numero", "data", "vendedor", "cliente",
             "produto", "quantidade", "preco", "total"
-        ])
-        pedidos.to_excel(ARQ_PEDIDOS, index=False)
+        ]).to_excel(ARQ_PEDIDOS, index=False)
 
 criar_bancos()
 
@@ -183,6 +180,29 @@ def cadastro_produtos():
 
             st.success("Produto cadastrado com sucesso!")
 
+def consultar_produtos():
+    st.header("🔎 Consultar Produtos")
+
+    produtos = carregar_excel(ARQ_PRODUTOS)
+
+    if produtos.empty:
+        st.warning("Nenhum produto cadastrado.")
+        return
+
+    busca = st.text_input("Pesquisar por nome ou código")
+
+    if busca:
+        busca = busca.lower()
+        produtos = produtos[
+            produtos["produto"].astype(str).str.lower().str.contains(busca) |
+            produtos["codigo"].astype(str).str.lower().str.contains(busca)
+        ]
+
+    produtos_exibir = produtos[["codigo", "produto", "preco", "status"]].copy()
+    produtos_exibir["preco"] = produtos_exibir["preco"].apply(lambda x: f"R$ {float(x):.2f}")
+
+    st.dataframe(produtos_exibir, use_container_width=True)
+
 def novo_pedido():
     st.header("🛒 Novo Pedido")
 
@@ -302,10 +322,6 @@ def painel_admin():
             salvar_excel(clientes, ARQ_CLIENTES)
             st.success("Cliente transferido com sucesso!")
 
-# =========================
-# APP PRINCIPAL
-# =========================
-
 if "logado" not in st.session_state:
     login()
 else:
@@ -323,6 +339,7 @@ else:
                 "Cadastrar Cliente",
                 "Consultar Clientes",
                 "Cadastrar Produto",
+                "Consultar Produto",
                 "Histórico de Pedidos",
                 "Sair"
             ]
@@ -334,6 +351,7 @@ else:
                 "Novo Pedido",
                 "Cadastrar Cliente",
                 "Meus Clientes",
+                "Consultar Produto",
                 "Meus Pedidos",
                 "Sair"
             ]
@@ -350,6 +368,9 @@ else:
 
     elif menu == "Cadastrar Produto":
         cadastro_produtos()
+
+    elif menu == "Consultar Produto":
+        consultar_produtos()
 
     elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
         historico_pedidos()
