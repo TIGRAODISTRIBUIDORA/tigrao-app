@@ -10,6 +10,8 @@ st.set_page_config(
 )
 
 AMBIENTE = "DESENVOLVIMENTO"
+COMISSAO_PADRAO = 0.07
+
 PASTA_DADOS = "dados_dev" if AMBIENTE == "DESENVOLVIMENTO" else "dados_producao"
 
 ARQ_USUARIOS = f"{PASTA_DADOS}/usuarios.xlsx"
@@ -41,7 +43,7 @@ def criar_bancos():
     if not os.path.exists(ARQ_PEDIDOS):
         pd.DataFrame(columns=[
             "numero", "data", "vendedor", "cliente",
-            "produto", "quantidade", "preco", "total"
+            "produto", "quantidade", "preco", "total", "comissao"
         ]).to_excel(ARQ_PEDIDOS, index=False)
 
 criar_bancos()
@@ -51,6 +53,15 @@ def carregar_excel(caminho):
 
 def salvar_excel(df, caminho):
     df.to_excel(caminho, index=False)
+
+def garantir_coluna_comissao():
+    pedidos = carregar_excel(ARQ_PEDIDOS)
+
+    if "comissao" not in pedidos.columns:
+        pedidos["comissao"] = pedidos["total"].fillna(0).astype(float) * COMISSAO_PADRAO
+        salvar_excel(pedidos, ARQ_PEDIDOS)
+
+garantir_coluna_comissao()
 
 def login():
     st.title("🐯 Tigrão Distribuidora")
@@ -255,9 +266,11 @@ def novo_pedido():
     preco = float(produto_linha["preco"])
     quantidade = st.number_input("Quantidade", min_value=1, step=1)
     total = preco * quantidade
+    comissao = total * COMISSAO_PADRAO
 
     st.info(f"Preço: R$ {preco:.2f}")
-    st.success(f"Total: R$ {total:.2f}")
+    st.success(f"Total do pedido: R$ {total:.2f}")
+    st.warning(f"Comissão do vendedor: R$ {comissao:.2f}")
 
     if st.button("Salvar Pedido"):
         pedidos = carregar_excel(ARQ_PEDIDOS)
@@ -270,7 +283,8 @@ def novo_pedido():
             "produto": produto_nome,
             "quantidade": quantidade,
             "preco": preco,
-            "total": total
+            "total": total,
+            "comissao": comissao
         }
 
         pedidos = pd.concat([pedidos, pd.DataFrame([novo])], ignore_index=True)
@@ -286,9 +300,56 @@ def historico_pedidos():
 
     pedidos = carregar_excel(ARQ_PEDIDOS)
 
+    if "comissao" not in pedidos.columns:
+        pedidos["comissao"] = pedidos["total"].fillna(0).astype(float) * COMISSAO_PADRAO
+
     if st.session_state["tipo"] != "admin":
         pedidos = pedidos[pedidos["vendedor"].astype(str) == st.session_state["usuario"]]
 
+    st.dataframe(pedidos, use_container_width=True)
+
+def comissoes():
+    if st.session_state["tipo"] == "admin":
+        st.header("💰 Comissão dos Vendedores")
+    else:
+        st.header("💰 Minha Comissão")
+
+    pedidos = carregar_excel(ARQ_PEDIDOS)
+
+    if pedidos.empty:
+        st.warning("Nenhum pedido lançado.")
+        return
+
+    if "comissao" not in pedidos.columns:
+        pedidos["comissao"] = pedidos["total"].fillna(0).astype(float) * COMISSAO_PADRAO
+
+    if st.session_state["tipo"] != "admin":
+        pedidos = pedidos[pedidos["vendedor"].astype(str) == st.session_state["usuario"]]
+
+    if pedidos.empty:
+        st.warning("Nenhum pedido encontrado para este vendedor.")
+        return
+
+    total_vendas = pedidos["total"].fillna(0).astype(float).sum()
+    total_comissao = pedidos["comissao"].fillna(0).astype(float).sum()
+
+    col1, col2 = st.columns(2)
+    col1.metric("Total vendido", f"R$ {total_vendas:,.2f}")
+    col2.metric("Comissão 7%", f"R$ {total_comissao:,.2f}")
+
+    st.subheader("Resumo por vendedor")
+
+    resumo = pedidos.groupby("vendedor", as_index=False).agg({
+        "total": "sum",
+        "comissao": "sum"
+    })
+
+    resumo["total"] = resumo["total"].apply(lambda x: f"R$ {x:,.2f}")
+    resumo["comissao"] = resumo["comissao"].apply(lambda x: f"R$ {x:,.2f}")
+
+    st.dataframe(resumo, use_container_width=True)
+
+    st.subheader("Pedidos com comissão")
     st.dataframe(pedidos, use_container_width=True)
 
 def painel_admin():
@@ -303,12 +364,22 @@ def painel_admin():
     pedidos = carregar_excel(ARQ_PEDIDOS)
     usuarios = carregar_excel(ARQ_USUARIOS)
 
-    col1, col2, col3, col4 = st.columns(4)
+    if "comissao" not in pedidos.columns:
+        pedidos["comissao"] = pedidos["total"].fillna(0).astype(float) * COMISSAO_PADRAO
+
+    total_vendido = pedidos["total"].fillna(0).astype(float).sum() if not pedidos.empty else 0
+    total_comissao = pedidos["comissao"].fillna(0).astype(float).sum() if not pedidos.empty else 0
+
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     col1.metric("Clientes", len(clientes))
     col2.metric("Produtos", len(produtos))
     col3.metric("Pedidos", len(pedidos))
     col4.metric("Vendedores", len(usuarios[usuarios["tipo"] == "vendedor"]))
+    col5.metric("Comissões", f"R$ {total_comissao:,.2f}")
+
+    st.subheader("Faturamento")
+    st.success(f"Total vendido: R$ {total_vendido:,.2f}")
 
     st.subheader("Transferir Cliente de Vendedor")
 
@@ -341,6 +412,7 @@ else:
                 "Cadastrar Produto",
                 "Consultar Produto",
                 "Histórico de Pedidos",
+                "Comissões",
                 "Sair"
             ]
         )
@@ -353,6 +425,7 @@ else:
                 "Meus Clientes",
                 "Consultar Produto",
                 "Meus Pedidos",
+                "Minha Comissão",
                 "Sair"
             ]
         )
@@ -374,6 +447,9 @@ else:
 
     elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
         historico_pedidos()
+
+    elif menu in ["Comissões", "Minha Comissão"]:
+        comissoes()
 
     elif menu == "Painel Administrativo":
         painel_admin()
