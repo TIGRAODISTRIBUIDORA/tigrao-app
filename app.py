@@ -13,7 +13,7 @@ st.write("### 📦 Painel Integrado de Vendas e Cadastro")
 CAMINHO_VENDAS = "vendas_tigrao.xlsx"
 CAMINHO_USUARIOS = "usuarios_banco.xlsx"
 CAMINHO_CLIENTES = "clientes_banco.xlsx"
-CAMINHO_FORNECEDORES = "fornecedores_banco.xlsx"  # <--- Nova Planilha
+CAMINHO_FORNECEDORES = "fornecedores_banco.xlsx"
 
 # Configurações de segurança fixas da empresa
 SENHA_NELSON_MESTRE = "TigraoNelson2026"
@@ -88,13 +88,12 @@ if st.session_state["vendedor_nome"] == "":
         email_limpo = email_input.strip().lower()
         senha_limpa = senha_input.strip()
         
-        if email_limpo in USUARIOS_SISTEMA and USUARIOS_SISTEMA[email_limpo]["senha"] == senha_limpa if 'USUARIOS_SISTEMA' in locals() else (email_limpo in ["sodemilecem23@gmail.com", "joaquim@tigrao.com", "pedro@tigrao.com"] and senha_limpa == "123"):
-            # Define nomes amigáveis baseados no e-mail corporativo
+        if email_limpo in ["sodemilecem23@gmail.com", "joaquim@tigrao.com", "pedro@tigrao.com"] and senha_limpa == "123":
             nomes_mapa = {"sodemilecem23@gmail.com": "Nelson Dono", "joaquim@tigrao.com": "Joaquim Silva", "pedro@tigrao.com": "Pedro Santos"}
             st.session_state["vendedor_nome"] = nomes_mapa[email_limpo]
             st.session_state["vendedor_email"] = email_limpo
             st.success("Dispositivo ativado com sucesso!")
-            st.rerun()
+            st.st.rerun()
         else:
             st.error("❌ E-mail ou Senha incorretos. Use a senha 123.")
 
@@ -109,7 +108,6 @@ else:
     st.markdown("---")
     is_admin = st.session_state["vendedor_email"] == EMAIL_DONO
     
-    # Gerenciamento de abas: Fornecedores e Recebimento somem da tela do vendedor de rua 🛡️
     if is_admin:
         tab_pedido, tab_cadastro, tab_fornecedores, tab_consulta_prod, tab_recebimento = st.tabs([
             "📋 Passar Pedido", "➕ Cadastrar Cliente", "🏭 Cadastrar Fornecedor", "🔍 Consultar Produtos", "👑 Recebimento Nelson (Central)"
@@ -128,7 +126,7 @@ else:
         if cliente_escolhido:
             dados_busca = df_clientes[df_clientes["Nome"] == cliente_escolhido]
             if not dados_busca.empty:
-                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc[0]['Codigo'])} | CNPJ: {dados_busca.iloc[0]['CNPJ']}")
+                st.info(f"🟩 CLIENTE CONFERIDO | Código: COD-{int(dados_busca.iloc['Codigo'])} | CNPJ: {dados_busca.iloc['CNPJ']}")
         
         st.markdown("---")
         st.subheader("2. Vincular Fornecedor")
@@ -189,7 +187,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO) ---
+    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO - TOTALMENTE CORRIGIDO) ---
     if is_admin:
         with tab_fornecedores:
             st.subheader("🏭 Cadastro de Fornecedores do Tigrão")
@@ -202,3 +200,10 @@ else:
                 try:
                     prox_cod_f = int(df_fornecedores["Codigo"].max() + 1) if not df_fornecedores.empty else 1
                     novo_f_df = pd.DataFrame([{"Codigo": prox_cod_f, "Fornecedor": nome_fornecedor.strip(), "CNPJ": cnpj_fornecedor.strip()}])
+                    df_forn_atualizado = pd.concat([df_fornecedores, novo_f_df], ignore_index=True)
+                    df_forn_atualizado.to_excel(CAMINHO_FORNECEDORES, index=False)
+                    st.success(f"🎉 Fornecedor '{nome_fornecedor}' cadastrado com sucesso!")
+                    st.rerun()
+                except Exception:
+                    st.error("Erro ao salvar fornecedor.")
+
