@@ -266,6 +266,7 @@ def consultar_produtos():
     st.dataframe(produtos_exibir, use_container_width=True)
 
 def editar_produtos():
+   def editar_produtos():
     st.header("✏️ Editar Produto")
 
     if st.session_state["tipo"] != "admin":
@@ -277,6 +278,19 @@ def editar_produtos():
     if produtos.empty:
         st.warning("Nenhum produto cadastrado.")
         return
+
+    if "desconto_maximo" not in produtos.columns:
+        produtos["desconto_maximo"] = 0.0
+
+    produtos["desconto_maximo"] = pd.to_numeric(
+        produtos["desconto_maximo"],
+        errors="coerce"
+    ).fillna(0.0)
+
+    produtos["preco"] = pd.to_numeric(
+        produtos["preco"],
+        errors="coerce"
+    ).fillna(0.0)
 
     busca = st.text_input("Pesquisar produto para editar por nome ou código")
 
@@ -296,7 +310,7 @@ def editar_produtos():
     escolha = st.selectbox(
         "Selecione o produto",
         produtos_filtrados.index.tolist(),
-        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - {produtos.loc[i, 'status']}"
+        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - desconto: {produtos.loc[i, 'desconto_maximo']}%"
     )
 
     linha = produtos.loc[escolha]
@@ -304,7 +318,15 @@ def editar_produtos():
     with st.form("form_editar_produto"):
         novo_codigo = st.text_input("Código do produto", value=str(linha["codigo"]))
         novo_produto = st.text_input("Nome do produto", value=str(linha["produto"]))
-        novo_preco = st.number_input("Preço", min_value=0.0, step=0.01, value=float(linha["preco"]))
+
+        novo_preco = st.number_input(
+            "Preço",
+            min_value=0.0,
+            max_value=999999.0,
+            step=0.01,
+            value=float(linha["preco"])
+        )
+
         novo_desconto = st.number_input(
             "Desconto máximo permitido (%)",
             min_value=0.0,
@@ -340,44 +362,14 @@ def editar_produtos():
 
             produtos.loc[escolha, "codigo"] = codigo_limpo
             produtos.loc[escolha, "produto"] = produto_limpo
-            produtos.loc[escolha, "preco"] = novo_preco
-            produtos.loc[escolha, "desconto_maximo"] = novo_desconto
+            produtos.loc[escolha, "preco"] = float(novo_preco)
+            produtos.loc[escolha, "desconto_maximo"] = float(novo_desconto)
             produtos.loc[escolha, "status"] = novo_status
 
             salvar_excel(produtos, ARQ_PRODUTOS)
-            st.success("Produto atualizado com sucesso!")
+
+            st.success(f"Produto atualizado! Desconto salvo: {novo_desconto:.1f}%")
             st.rerun()
-
-def gerenciar_status():
-    st.header("🔒 Gerenciar Status")
-
-    if st.session_state["tipo"] != "admin":
-        st.error("Acesso bloqueado.")
-        return
-
-    opcao = st.selectbox("O que deseja gerenciar?", ["Produto", "Cliente", "Vendedor"])
-
-    if opcao == "Produto":
-        produtos = carregar_excel(ARQ_PRODUTOS)
-
-        if produtos.empty:
-            st.warning("Nenhum produto cadastrado.")
-            return
-
-        item = st.selectbox(
-            "Selecione o produto",
-            produtos.index.tolist(),
-            format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - {produtos.loc[i, 'status']}"
-        )
-
-        novo_status = st.selectbox("Novo status", ["ativo", "inativo"])
-
-        if st.button("Salvar status do produto"):
-            produtos.loc[item, "status"] = novo_status
-            salvar_excel(produtos, ARQ_PRODUTOS)
-            st.success("Status do produto atualizado com sucesso!")
-            st.rerun()
-
     elif opcao == "Cliente":
         clientes = carregar_excel(ARQ_CLIENTES)
 
