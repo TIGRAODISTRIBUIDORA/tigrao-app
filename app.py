@@ -52,22 +52,20 @@ def salvar_excel(df, caminho):
 
 def ajustar_bancos():
     produtos = carregar_excel(ARQ_PRODUTOS)
+
     if "desconto_maximo" not in produtos.columns:
         produtos["desconto_maximo"] = 0.0
-        salvar_excel(produtos, ARQ_PRODUTOS)
+
+    if "status" not in produtos.columns:
+        produtos["status"] = "ativo"
+
+    salvar_excel(produtos, ARQ_PRODUTOS)
 
     pedidos = carregar_excel(ARQ_PEDIDOS)
 
-    colunas_pedidos = {
-        "subtotal": 0.0,
-        "desconto_percentual": 0.0,
-        "valor_desconto": 0.0,
-        "comissao": 0.0
-    }
-
-    for coluna, valor in colunas_pedidos.items():
+    for coluna in ["subtotal", "desconto_percentual", "valor_desconto", "comissao"]:
         if coluna not in pedidos.columns:
-            pedidos[coluna] = valor
+            pedidos[coluna] = 0.0
 
     if "total" in pedidos.columns:
         pedidos["comissao"] = pedidos["total"].fillna(0).astype(float) * COMISSAO_PADRAO
@@ -145,7 +143,6 @@ def cadastro_clientes():
 
             clientes = pd.concat([clientes, pd.DataFrame([novo])], ignore_index=True)
             salvar_excel(clientes, ARQ_CLIENTES)
-
             st.success("Cliente cadastrado com sucesso!")
 
 def consultar_clientes():
@@ -190,15 +187,28 @@ def cadastro_produtos():
         salvar = st.form_submit_button("Salvar Produto")
 
         if salvar:
-            if produto.strip() == "":
+            produtos = carregar_excel(ARQ_PRODUTOS)
+
+            codigo_limpo = str(codigo).strip()
+            produto_limpo = str(produto).strip()
+
+            if codigo_limpo == "":
+                st.error("Informe o código do produto.")
+                return
+
+            if produto_limpo == "":
                 st.error("Informe o nome do produto.")
                 return
 
-            produtos = carregar_excel(ARQ_PRODUTOS)
+            codigo_existe = produtos["codigo"].astype(str).str.strip().eq(codigo_limpo).any()
+
+            if codigo_existe:
+                st.error("Já existe um produto cadastrado com esse código. Use outro código ou edite o produto existente.")
+                return
 
             novo = {
-                "codigo": codigo,
-                "produto": produto,
+                "codigo": codigo_limpo,
+                "produto": produto_limpo,
                 "preco": preco,
                 "desconto_maximo": desconto_maximo,
                 "status": "ativo"
@@ -206,7 +216,6 @@ def cadastro_produtos():
 
             produtos = pd.concat([produtos, pd.DataFrame([novo])], ignore_index=True)
             salvar_excel(produtos, ARQ_PRODUTOS)
-
             st.success("Produto cadastrado com sucesso!")
 
 def consultar_produtos():
@@ -233,11 +242,100 @@ def consultar_produtos():
 
     st.dataframe(produtos_exibir, use_container_width=True)
 
+def editar_produtos():
+    st.header("✏️ Editar Produto")
+
+    if st.session_state["tipo"] != "admin":
+        st.error("Acesso bloqueado.")
+        return
+
+    produtos = carregar_excel(ARQ_PRODUTOS)
+
+    if produtos.empty:
+        st.warning("Nenhum produto cadastrado.")
+        return
+
+    busca = st.text_input("Pesquisar produto para editar por nome ou código")
+
+    produtos_filtrados = produtos.copy()
+
+    if busca:
+        busca = busca.lower()
+        produtos_filtrados = produtos[
+            produtos["produto"].astype(str).str.lower().str.contains(busca) |
+            produtos["codigo"].astype(str).str.lower().str.contains(busca)
+        ]
+
+    if produtos_filtrados.empty:
+        st.warning("Nenhum produto encontrado.")
+        return
+
+    opcoes = produtos_filtrados.index.tolist()
+
+    escolha = st.selectbox(
+        "Selecione o produto",
+        opcoes,
+        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']}"
+    )
+
+    linha = produtos.loc[escolha]
+
+    with st.form("form_editar_produto"):
+        novo_codigo = st.text_input("Código do produto", value=str(linha["codigo"]))
+        novo_produto = st.text_input("Nome do produto", value=str(linha["produto"]))
+        novo_preco = st.number_input("Preço", min_value=0.0, step=0.01, value=float(linha["preco"]))
+        novo_desconto = st.number_input(
+            "Desconto máximo permitido (%)",
+            min_value=0.0,
+            max_value=100.0,
+            step=0.5,
+            value=float(linha["desconto_maximo"])
+        )
+
+        status_atual = str(linha["status"]).lower()
+        status_opcoes = ["ativo", "inativo"]
+        status_index = 0 if status_atual == "ativo" else 1
+
+        novo_status = st.selectbox("Status", status_opcoes, index=status_index)
+
+        salvar = st.form_submit_button("Salvar Alterações")
+
+        if salvar:
+            codigo_limpo = str(novo_codigo).strip()
+            produto_limpo = str(novo_produto).strip()
+
+            if codigo_limpo == "":
+                st.error("O código do produto não pode ficar vazio.")
+                return
+
+            if produto_limpo == "":
+                st.error("O nome do produto não pode ficar vazio.")
+                return
+
+            outros_produtos = produtos.drop(index=escolha)
+            codigo_existe = outros_produtos["codigo"].astype(str).str.strip().eq(codigo_limpo).any()
+
+            if codigo_existe:
+                st.error("Já existe outro produto com esse código. Não é permitido código repetido.")
+                return
+
+            produtos.loc[escolha, "codigo"] = codigo_limpo
+            produtos.loc[escolha, "produto"] = produto_limpo
+            produtos.loc[escolha, "preco"] = novo_preco
+            produtos.loc[escolha, "desconto_maximo"] = novo_desconto
+            produtos.loc[escolha, "status"] = novo_status
+
+            salvar_excel(produtos, ARQ_PRODUTOS)
+            st.success("Produto atualizado com sucesso!")
+            st.rerun()
+
 def novo_pedido():
     st.header("🛒 Novo Pedido")
 
     clientes = carregar_excel(ARQ_CLIENTES)
     produtos = carregar_excel(ARQ_PRODUTOS)
+
+    produtos = produtos[produtos["status"].astype(str).str.lower() == "ativo"]
 
     if st.session_state["tipo"] != "admin":
         clientes = clientes[clientes["vendedor"].astype(str) == st.session_state["usuario"]]
@@ -247,7 +345,7 @@ def novo_pedido():
         return
 
     if produtos.empty:
-        st.warning("Nenhum produto cadastrado.")
+        st.warning("Nenhum produto cadastrado ou ativo.")
         return
 
     busca_cliente = st.text_input("Pesquisar cliente")
@@ -427,6 +525,7 @@ else:
                 "Consultar Clientes",
                 "Cadastrar Produto",
                 "Consultar Produto",
+                "Editar Produto",
                 "Histórico de Pedidos",
                 "Comissões",
                 "Sair"
@@ -456,6 +555,8 @@ else:
         cadastro_produtos()
     elif menu == "Consultar Produto":
         consultar_produtos()
+    elif menu == "Editar Produto":
+        editar_produtos()
     elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
         historico_pedidos()
     elif menu in ["Comissões", "Minha Comissão"]:
