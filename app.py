@@ -93,7 +93,7 @@ if st.session_state["vendedor_nome"] == "":
             st.session_state["vendedor_nome"] = nomes_mapa[email_limpo]
             st.session_state["vendedor_email"] = email_limpo
             st.success("Dispositivo ativado com sucesso!")
-            st.st.rerun()
+            st.rerun()  # <--- LINHA 96 CORRIGIDA AQUI!
         else:
             st.error("❌ E-mail ou Senha incorretos. Use a senha 123.")
 
@@ -140,7 +140,7 @@ else:
         preco_un = produtos_fixos[produto]
         st.caption(f"Preço do fardo: R$ {preco_un:.2f}")
         quantidade = st.number_input("Quantidade de Fardos:", min_value=1, value=1, step=1)
-        total_pedido = preco_un * quantidade
+        total_pedido = preco_un * quantity if 'quantity' in locals() else preco_un * quantidade
         st.markdown(f"#### 💰 Total do Pedido: **R$ {total_pedido:.2f}**")
         
         prazo_dias = st.number_input("Prazo de Pagamento (em dias):", min_value=0, max_value=365, value=30, step=1)
@@ -187,7 +187,7 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO - TOTALMENTE CORRIGIDO) ---
+    # --- ABA 3: CADASTRAR FORNECEDOR (EXCLUSIVO DO DONO) ---
     if is_admin:
         with tab_fornecedores:
             st.subheader("🏭 Cadastro de Fornecedores do Tigrão")
@@ -205,5 +205,3 @@ else:
                     st.success(f"🎉 Fornecedor '{nome_fornecedor}' cadastrado com sucesso!")
                     st.rerun()
                 except Exception:
-                    st.error("Erro ao salvar fornecedor.")
-
