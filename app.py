@@ -17,6 +17,12 @@ ARQ_PEDIDOS = f"{PASTA_DADOS}/pedidos.xlsx"
 
 os.makedirs(PASTA_DADOS, exist_ok=True)
 
+def carregar_excel(caminho):
+    return pd.read_excel(caminho)
+
+def salvar_excel(df, caminho):
+    df.to_excel(caminho, index=False)
+
 def criar_bancos():
     if not os.path.exists(ARQ_USUARIOS):
         pd.DataFrame([
@@ -44,12 +50,6 @@ def criar_bancos():
 
 criar_bancos()
 
-def carregar_excel(caminho):
-    return pd.read_excel(caminho)
-
-def salvar_excel(df, caminho):
-    df.to_excel(caminho, index=False)
-
 def ajustar_bancos():
     produtos = carregar_excel(ARQ_PRODUTOS)
 
@@ -58,6 +58,12 @@ def ajustar_bancos():
 
     if "status" not in produtos.columns:
         produtos["status"] = "ativo"
+
+    produtos["codigo"] = produtos["codigo"].astype(str)
+    produtos["produto"] = produtos["produto"].astype(str)
+    produtos["status"] = produtos["status"].astype(str)
+    produtos["preco"] = pd.to_numeric(produtos["preco"], errors="coerce").fillna(0.0)
+    produtos["desconto_maximo"] = pd.to_numeric(produtos["desconto_maximo"], errors="coerce").fillna(0.0)
 
     salvar_excel(produtos, ARQ_PRODUTOS)
 
@@ -82,7 +88,8 @@ def ajustar_bancos():
             pedidos[coluna] = 0.0
 
     if "total" in pedidos.columns:
-        pedidos["comissao"] = pedidos["total"].fillna(0).astype(float) * COMISSAO_PADRAO
+        pedidos["total"] = pd.to_numeric(pedidos["total"], errors="coerce").fillna(0.0)
+        pedidos["comissao"] = pedidos["total"] * COMISSAO_PADRAO
 
     salvar_excel(pedidos, ARQ_PEDIDOS)
 
@@ -208,6 +215,7 @@ def cadastro_produtos():
 
         if salvar:
             produtos = carregar_excel(ARQ_PRODUTOS)
+            produtos["codigo"] = produtos["codigo"].astype(str)
 
             codigo_limpo = str(codigo).strip()
             produto_limpo = str(produto).strip()
@@ -229,8 +237,8 @@ def cadastro_produtos():
             novo = {
                 "codigo": codigo_limpo,
                 "produto": produto_limpo,
-                "preco": preco,
-                "desconto_maximo": desconto_maximo,
+                "preco": float(preco),
+                "desconto_maximo": float(desconto_maximo),
                 "status": "ativo"
             }
 
@@ -260,8 +268,11 @@ def consultar_produtos():
         ]
 
     produtos_exibir = produtos[["codigo", "produto", "preco", "desconto_maximo", "status"]].copy()
-    produtos_exibir["preco"] = produtos_exibir["preco"].apply(lambda x: f"R$ {float(x):.2f}")
-    produtos_exibir["desconto_maximo"] = produtos_exibir["desconto_maximo"].apply(lambda x: f"{float(x):.1f}%")
+    produtos_exibir["preco"] = pd.to_numeric(produtos_exibir["preco"], errors="coerce").fillna(0.0)
+    produtos_exibir["desconto_maximo"] = pd.to_numeric(produtos_exibir["desconto_maximo"], errors="coerce").fillna(0.0)
+
+    produtos_exibir["preco"] = produtos_exibir["preco"].apply(lambda x: f"R$ {x:.2f}")
+    produtos_exibir["desconto_maximo"] = produtos_exibir["desconto_maximo"].apply(lambda x: f"{x:.1f}%")
 
     st.dataframe(produtos_exibir, use_container_width=True)
 
@@ -277,6 +288,12 @@ def editar_produtos():
     if produtos.empty:
         st.warning("Nenhum produto cadastrado.")
         return
+
+    produtos["codigo"] = produtos["codigo"].astype(str)
+    produtos["produto"] = produtos["produto"].astype(str)
+    produtos["status"] = produtos["status"].astype(str)
+    produtos["preco"] = pd.to_numeric(produtos["preco"], errors="coerce").fillna(0.0)
+    produtos["desconto_maximo"] = pd.to_numeric(produtos["desconto_maximo"], errors="coerce").fillna(0.0)
 
     busca = st.text_input("Pesquisar produto para editar por nome ou código")
 
@@ -296,7 +313,7 @@ def editar_produtos():
     escolha = st.selectbox(
         "Selecione o produto",
         produtos_filtrados.index.tolist(),
-        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - {produtos.loc[i, 'status']}"
+        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - desconto: {produtos.loc[i, 'desconto_maximo']}%"
     )
 
     linha = produtos.loc[escolha]
@@ -304,7 +321,15 @@ def editar_produtos():
     with st.form("form_editar_produto"):
         novo_codigo = st.text_input("Código do produto", value=str(linha["codigo"]))
         novo_produto = st.text_input("Nome do produto", value=str(linha["produto"]))
-        novo_preco = st.number_input("Preço", min_value=0.0, step=0.01, value=float(linha["preco"]))
+
+        novo_preco = st.number_input(
+            "Preço",
+            min_value=0.0,
+            max_value=999999.0,
+            step=0.01,
+            value=float(linha["preco"])
+        )
+
         novo_desconto = st.number_input(
             "Desconto máximo permitido (%)",
             min_value=0.0,
@@ -338,14 +363,19 @@ def editar_produtos():
                 st.error("Já existe outro produto com esse código.")
                 return
 
-            produtos.loc[escolha, "codigo"] = codigo_limpo
-            produtos.loc[escolha, "produto"] = produto_limpo
-            produtos.loc[escolha, "preco"] = novo_preco
-            produtos.loc[escolha, "desconto_maximo"] = novo_desconto
-            produtos.loc[escolha, "status"] = novo_status
+            produtos["codigo"] = produtos["codigo"].astype(str)
+            produtos["produto"] = produtos["produto"].astype(str)
+            produtos["status"] = produtos["status"].astype(str)
+
+            produtos.at[escolha, "codigo"] = str(codigo_limpo)
+            produtos.at[escolha, "produto"] = str(produto_limpo)
+            produtos.at[escolha, "preco"] = float(novo_preco)
+            produtos.at[escolha, "desconto_maximo"] = float(novo_desconto)
+            produtos.at[escolha, "status"] = str(novo_status)
 
             salvar_excel(produtos, ARQ_PRODUTOS)
-            st.success("Produto atualizado com sucesso!")
+
+            st.success(f"Produto atualizado! Desconto salvo: {novo_desconto:.1f}%")
             st.rerun()
 
 def gerenciar_status():
@@ -360,10 +390,6 @@ def gerenciar_status():
     if opcao == "Produto":
         produtos = carregar_excel(ARQ_PRODUTOS)
 
-        if produtos.empty:
-            st.warning("Nenhum produto cadastrado.")
-            return
-
         item = st.selectbox(
             "Selecione o produto",
             produtos.index.tolist(),
@@ -373,17 +399,13 @@ def gerenciar_status():
         novo_status = st.selectbox("Novo status", ["ativo", "inativo"])
 
         if st.button("Salvar status do produto"):
-            produtos.loc[item, "status"] = novo_status
+            produtos.at[item, "status"] = novo_status
             salvar_excel(produtos, ARQ_PRODUTOS)
             st.success("Status do produto atualizado com sucesso!")
             st.rerun()
 
     elif opcao == "Cliente":
         clientes = carregar_excel(ARQ_CLIENTES)
-
-        if clientes.empty:
-            st.warning("Nenhum cliente cadastrado.")
-            return
 
         item = st.selectbox(
             "Selecione o cliente",
@@ -394,7 +416,7 @@ def gerenciar_status():
         novo_status = st.selectbox("Novo status", ["ativo", "inativo"])
 
         if st.button("Salvar status do cliente"):
-            clientes.loc[item, "status"] = novo_status
+            clientes.at[item, "status"] = novo_status
             salvar_excel(clientes, ARQ_CLIENTES)
             st.success("Status do cliente atualizado com sucesso!")
             st.rerun()
@@ -402,10 +424,6 @@ def gerenciar_status():
     elif opcao == "Vendedor":
         usuarios = carregar_excel(ARQ_USUARIOS)
         vendedores = usuarios[usuarios["tipo"] == "vendedor"]
-
-        if vendedores.empty:
-            st.warning("Nenhum vendedor cadastrado.")
-            return
 
         item = st.selectbox(
             "Selecione o vendedor",
@@ -416,7 +434,7 @@ def gerenciar_status():
         novo_status = st.selectbox("Novo status", ["sim", "nao"])
 
         if st.button("Salvar status do vendedor"):
-            usuarios.loc[item, "ativo"] = novo_status
+            usuarios.at[item, "ativo"] = novo_status
             salvar_excel(usuarios, ARQ_USUARIOS)
             st.success("Status do vendedor atualizado com sucesso!")
             st.rerun()
