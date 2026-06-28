@@ -251,7 +251,7 @@ def consultar_clientes():
     st.dataframe(clientes, use_container_width=True)
 
 def cadastro_produtos():
-    st.header("📦 Cadastro de Produtos")
+    st.header("📦 Produtos")
 
     if st.session_state["tipo"] != "admin":
         st.error("Acesso bloqueado.")
@@ -259,86 +259,193 @@ def cadastro_produtos():
 
     aba = st.radio(
         "Escolha uma opção",
-        ["Cadastrar manualmente", "Importar Excel", "Exportar Excel"],
+        ["Cadastrar manualmente", "Importar produtos por Excel", "Exportar produtos para Excel"],
         horizontal=True
     )
 
     if aba == "Cadastrar manualmente":
+        st.subheader("➕ Cadastrar produto manualmente")
+
         with st.form("form_produto"):
             codigo = st.text_input("Código do produto")
             produto = st.text_input("Nome do produto")
             preco = st.number_input("Preço", min_value=0.0, step=0.01)
-            desconto_maximo = st.number_input("Desconto máximo permitido (%)",0.0,100.0,0.0,0.5)
+
+            desconto_maximo = st.number_input(
+                "Desconto máximo permitido (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=0.0,
+                step=0.5
+            )
+
             salvar = st.form_submit_button("Salvar Produto")
+
             if salvar:
                 produtos = carregar_excel(ARQ_PRODUTOS)
-                produtos["codigo"]=produtos["codigo"].astype(str)
-                if produtos["codigo"].str.strip().eq(str(codigo).strip()).any():
-                    st.error("Já existe um produto com esse código.")
+                produtos["codigo"] = produtos["codigo"].astype(str).str.strip()
+
+                codigo_limpo = str(codigo).strip()
+                produto_limpo = str(produto).strip()
+
+                if codigo_limpo == "":
+                    st.error("Informe o código do produto.")
                     return
-                novo={
-                    "codigo":str(codigo).strip(),
-                    "produto":str(produto).strip(),
-                    "preco":float(preco),
-                    "desconto_maximo":float(desconto_maximo),
-                    "status":"ativo"
+
+                if produto_limpo == "":
+                    st.error("Informe o nome do produto.")
+                    return
+
+                if produtos["codigo"].eq(codigo_limpo).any():
+                    st.error("Já existe um produto cadastrado com esse código.")
+                    return
+
+                novo = {
+                    "codigo": codigo_limpo,
+                    "produto": produto_limpo,
+                    "preco": float(preco),
+                    "desconto_maximo": float(desconto_maximo),
+                    "status": "ativo"
                 }
-                produtos=pd.concat([produtos,pd.DataFrame([novo])],ignore_index=True)
-                salvar_excel(produtos,ARQ_PRODUTOS)
+
+                produtos = pd.concat([produtos, pd.DataFrame([novo])], ignore_index=True)
+                salvar_excel(produtos, ARQ_PRODUTOS)
                 st.success("Produto cadastrado com sucesso!")
 
-    elif aba=="Importar Excel":
-        st.subheader("📥 Importar Produtos")
+    elif aba == "Importar produtos por Excel":
+        st.subheader("📥 Importar cadastro de produtos por Excel")
 
-        modelo=pd.DataFrame(columns=["codigo","produto","preco","desconto_maximo","status"])
+        st.info("A planilha deve ter pelo menos estas colunas: codigo, produto, preco. As colunas desconto_maximo e status são opcionais.")
 
-        buffer=BytesIO()
-        modelo.to_excel(buffer,index=False,engine="openpyxl")
-        buffer.seek(0)
+        modelo = pd.DataFrame([
+            {
+                "codigo": "001",
+                "produto": "CHÁ CAMOMILA TIGRÃO",
+                "preco": 3.50,
+                "desconto_maximo": 10,
+                "status": "ativo"
+            },
+            {
+                "codigo": "002",
+                "produto": "CHÁ BOLDO TIGRÃO",
+                "preco": 3.50,
+                "desconto_maximo": 10,
+                "status": "ativo"
+            }
+        ])
+
+        buffer_modelo = BytesIO()
+        modelo.to_excel(buffer_modelo, index=False, engine="openpyxl")
+        buffer_modelo.seek(0)
 
         st.download_button(
-            "📄 Baixar modelo",
-            buffer,
-            "modelo_produtos.xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            label="📄 Baixar modelo de importação de produtos",
+            data=buffer_modelo,
+            file_name="modelo_importar_produtos_tigrao.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        arquivo=st.file_uploader("Selecione a planilha",type=["xlsx"])
+        arquivo = st.file_uploader(
+            "Selecione a planilha Excel com os produtos",
+            type=["xlsx"],
+            key="upload_produtos_excel"
+        )
 
         if arquivo is not None:
-            novos=pd.read_excel(arquivo)
-            st.dataframe(novos,use_container_width=True)
+            try:
+                novos_produtos = pd.read_excel(arquivo)
+            except Exception as erro:
+                st.error(f"Erro ao ler a planilha: {erro}")
+                return
 
-            if st.button("Importar Produtos"):
-                atual=carregar_excel(ARQ_PRODUTOS)
-                atual["codigo"]=atual["codigo"].astype(str).str.strip()
+            st.write("Pré-visualização da planilha:")
+            st.dataframe(novos_produtos, use_container_width=True)
 
-                if "desconto_maximo" not in novos.columns:
-                    novos["desconto_maximo"]=0.0
-                if "status" not in novos.columns:
-                    novos["status"]="ativo"
+            if st.button("✅ Confirmar importação e cadastrar produtos no sistema"):
+                colunas_obrigatorias = ["codigo", "produto", "preco"]
 
-                novos["codigo"]=novos["codigo"].astype(str).str.strip()
+                for coluna in colunas_obrigatorias:
+                    if coluna not in novos_produtos.columns:
+                        st.error(f"A planilha precisa ter a coluna obrigatória: {coluna}")
+                        return
 
-                novos=novos[~novos["codigo"].isin(atual["codigo"])]
+                produtos_atual = carregar_excel(ARQ_PRODUTOS)
 
-                final=pd.concat([atual,novos],ignore_index=True)
-                salvar_excel(final,ARQ_PRODUTOS)
+                for coluna in ["codigo", "produto", "preco", "desconto_maximo", "status"]:
+                    if coluna not in produtos_atual.columns:
+                        if coluna == "desconto_maximo":
+                            produtos_atual[coluna] = 0.0
+                        elif coluna == "status":
+                            produtos_atual[coluna] = "ativo"
+                        else:
+                            produtos_atual[coluna] = ""
 
-                st.success(f"{len(novos)} produtos importados.")
+                produtos_atual["codigo"] = produtos_atual["codigo"].astype(str).str.strip()
+
+                if "desconto_maximo" not in novos_produtos.columns:
+                    novos_produtos["desconto_maximo"] = 0.0
+
+                if "status" not in novos_produtos.columns:
+                    novos_produtos["status"] = "ativo"
+
+                novos_produtos = novos_produtos[["codigo", "produto", "preco", "desconto_maximo", "status"]].copy()
+
+                novos_produtos["codigo"] = novos_produtos["codigo"].astype(str).str.strip()
+                novos_produtos["produto"] = novos_produtos["produto"].astype(str).str.strip()
+                novos_produtos["preco"] = pd.to_numeric(novos_produtos["preco"], errors="coerce").fillna(0.0)
+                novos_produtos["desconto_maximo"] = pd.to_numeric(novos_produtos["desconto_maximo"], errors="coerce").fillna(0.0)
+                novos_produtos["status"] = novos_produtos["status"].astype(str).str.lower().str.strip()
+
+                novos_produtos.loc[~novos_produtos["status"].isin(["ativo", "inativo"]), "status"] = "ativo"
+
+                novos_produtos = novos_produtos[
+                    (novos_produtos["codigo"] != "") &
+                    (novos_produtos["codigo"].str.lower() != "nan") &
+                    (novos_produtos["produto"] != "") &
+                    (novos_produtos["produto"].str.lower() != "nan")
+                ]
+
+                qtd_linhas_validas = len(novos_produtos)
+
+                novos_produtos = novos_produtos.drop_duplicates(subset=["codigo"], keep="first")
+
+                codigos_existentes = set(produtos_atual["codigo"].astype(str).str.strip())
+                produtos_para_importar = novos_produtos[
+                    ~novos_produtos["codigo"].astype(str).str.strip().isin(codigos_existentes)
+                ]
+
+                ignorados = qtd_linhas_validas - len(produtos_para_importar)
+
+                produtos_final = pd.concat(
+                    [produtos_atual, produtos_para_importar],
+                    ignore_index=True
+                )
+
+                produtos_final = produtos_final[["codigo", "produto", "preco", "desconto_maximo", "status"]]
+
+                salvar_excel(produtos_final, ARQ_PRODUTOS)
+
+                st.success(f"Importação concluída! Produtos cadastrados no sistema: {len(produtos_para_importar)}")
+
+                if ignorados > 0:
+                    st.warning(f"Produtos ignorados por código duplicado, vazio ou inválido: {ignorados}")
+
                 st.rerun()
 
-    else:
-        st.subheader("📤 Exportar Produtos")
-        produtos=carregar_excel(ARQ_PRODUTOS)
-        buffer=BytesIO()
-        produtos.to_excel(buffer,index=False,engine="openpyxl")
+    elif aba == "Exportar produtos para Excel":
+        st.subheader("📤 Exportar produtos para Excel")
+
+        produtos = carregar_excel(ARQ_PRODUTOS)
+
+        buffer = BytesIO()
+        produtos.to_excel(buffer, index=False, engine="openpyxl")
         buffer.seek(0)
+
         st.download_button(
-            "📤 Baixar Produtos",
-            buffer,
-            "produtos_tigrao.xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            label="📤 Baixar produtos cadastrados",
+            data=buffer,
+            file_name="produtos_tigrao.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
 
@@ -937,6 +1044,54 @@ def comissoes():
     st.subheader("Pedidos com comissão")
     st.dataframe(pedidos, use_container_width=True)
 
+
+def limpar_pedidos_invalidos():
+    st.subheader("🧹 Limpar Pedidos Inválidos")
+
+    pedidos = carregar_excel(ARQ_PEDIDOS)
+
+    if pedidos.empty:
+        st.info("Não há pedidos para limpar.")
+        return
+
+    total_antes = len(pedidos)
+
+    colunas_chave = ["numero", "vendedor", "cliente", "produto", "quantidade", "preco", "total"]
+
+    for coluna in colunas_chave:
+        if coluna not in pedidos.columns:
+            pedidos[coluna] = ""
+
+    pedidos_limpos = pedidos.copy()
+
+    pedidos_limpos = pedidos_limpos[
+        pedidos_limpos["cliente"].notna() &
+        pedidos_limpos["produto"].notna() &
+        pedidos_limpos["vendedor"].notna()
+    ]
+
+    pedidos_limpos = pedidos_limpos[
+        (pedidos_limpos["cliente"].astype(str).str.lower() != "none") &
+        (pedidos_limpos["produto"].astype(str).str.lower() != "none") &
+        (pedidos_limpos["vendedor"].astype(str).str.lower() != "none") &
+        (pedidos_limpos["cliente"].astype(str).str.strip() != "") &
+        (pedidos_limpos["produto"].astype(str).str.strip() != "") &
+        (pedidos_limpos["vendedor"].astype(str).str.strip() != "")
+    ]
+
+    removidos = total_antes - len(pedidos_limpos)
+
+    st.warning(f"Registros inválidos encontrados: {removidos}")
+
+    if removidos > 0:
+        if st.button("🧹 Confirmar limpeza do histórico"):
+            salvar_excel(pedidos_limpos, ARQ_PEDIDOS)
+            st.success(f"Histórico limpo com sucesso! Registros removidos: {removidos}")
+            st.rerun()
+    else:
+        st.success("Nenhum registro inválido encontrado.")
+
+
 def painel_admin():
     st.header("⚙️ Painel Administrativo")
 
@@ -963,6 +1118,8 @@ def painel_admin():
     st.success(f"Total vendido: R$ {total_vendido:,.2f}")
 
     ferramentas_excel_pedidos()
+
+    limpar_pedidos_invalidos()
 
     st.subheader("Transferir Cliente de Vendedor")
 
