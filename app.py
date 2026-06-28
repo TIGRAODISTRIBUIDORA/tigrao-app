@@ -61,6 +61,20 @@ def ajustar_bancos():
 
     salvar_excel(produtos, ARQ_PRODUTOS)
 
+    clientes = carregar_excel(ARQ_CLIENTES)
+
+    if "status" not in clientes.columns:
+        clientes["status"] = "ativo"
+
+    salvar_excel(clientes, ARQ_CLIENTES)
+
+    usuarios = carregar_excel(ARQ_USUARIOS)
+
+    if "ativo" not in usuarios.columns:
+        usuarios["ativo"] = "sim"
+
+    salvar_excel(usuarios, ARQ_USUARIOS)
+
     pedidos = carregar_excel(ARQ_PEDIDOS)
 
     for coluna in ["subtotal", "desconto_percentual", "valor_desconto", "comissao"]:
@@ -97,7 +111,7 @@ def login():
             st.session_state["tipo"] = acesso.iloc[0]["tipo"]
             st.rerun()
         else:
-            st.error("Usuário ou senha inválidos.")
+            st.error("Usuário ou senha inválidos, ou usuário inativo.")
 
 def sair():
     st.session_state.clear()
@@ -107,7 +121,10 @@ def cadastro_clientes():
     st.header("👥 Cadastro de Clientes")
 
     usuarios = carregar_excel(ARQ_USUARIOS)
-    vendedores = usuarios[usuarios["tipo"] == "vendedor"]["usuario"].tolist()
+    vendedores = usuarios[
+        (usuarios["tipo"] == "vendedor") &
+        (usuarios["ativo"].astype(str).str.lower() == "sim")
+    ]["usuario"].tolist()
 
     with st.form("form_cliente"):
         nome = st.text_input("Nome do cliente")
@@ -151,7 +168,10 @@ def consultar_clientes():
     clientes = carregar_excel(ARQ_CLIENTES)
 
     if st.session_state["tipo"] != "admin":
-        clientes = clientes[clientes["vendedor"].astype(str) == st.session_state["usuario"]]
+        clientes = clientes[
+            (clientes["vendedor"].astype(str) == st.session_state["usuario"]) &
+            (clientes["status"].astype(str).str.lower() == "ativo")
+        ]
 
     busca = st.text_input("Pesquisar por nome, CNPJ ou cidade")
 
@@ -203,7 +223,7 @@ def cadastro_produtos():
             codigo_existe = produtos["codigo"].astype(str).str.strip().eq(codigo_limpo).any()
 
             if codigo_existe:
-                st.error("Já existe um produto cadastrado com esse código. Use outro código ou edite o produto existente.")
+                st.error("Já existe um produto cadastrado com esse código.")
                 return
 
             novo = {
@@ -222,6 +242,9 @@ def consultar_produtos():
     st.header("🔎 Consultar Produtos")
 
     produtos = carregar_excel(ARQ_PRODUTOS)
+
+    if st.session_state["tipo"] != "admin":
+        produtos = produtos[produtos["status"].astype(str).str.lower() == "ativo"]
 
     if produtos.empty:
         st.warning("Nenhum produto cadastrado.")
@@ -270,12 +293,10 @@ def editar_produtos():
         st.warning("Nenhum produto encontrado.")
         return
 
-    opcoes = produtos_filtrados.index.tolist()
-
     escolha = st.selectbox(
         "Selecione o produto",
-        opcoes,
-        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']}"
+        produtos_filtrados.index.tolist(),
+        format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - {produtos.loc[i, 'status']}"
     )
 
     linha = produtos.loc[escolha]
@@ -293,10 +314,8 @@ def editar_produtos():
         )
 
         status_atual = str(linha["status"]).lower()
-        status_opcoes = ["ativo", "inativo"]
         status_index = 0 if status_atual == "ativo" else 1
-
-        novo_status = st.selectbox("Status", status_opcoes, index=status_index)
+        novo_status = st.selectbox("Status", ["ativo", "inativo"], index=status_index)
 
         salvar = st.form_submit_button("Salvar Alterações")
 
@@ -316,7 +335,7 @@ def editar_produtos():
             codigo_existe = outros_produtos["codigo"].astype(str).str.strip().eq(codigo_limpo).any()
 
             if codigo_existe:
-                st.error("Já existe outro produto com esse código. Não é permitido código repetido.")
+                st.error("Já existe outro produto com esse código.")
                 return
 
             produtos.loc[escolha, "codigo"] = codigo_limpo
@@ -329,23 +348,97 @@ def editar_produtos():
             st.success("Produto atualizado com sucesso!")
             st.rerun()
 
+def gerenciar_status():
+    st.header("🔒 Gerenciar Status")
+
+    if st.session_state["tipo"] != "admin":
+        st.error("Acesso bloqueado.")
+        return
+
+    opcao = st.selectbox("O que deseja gerenciar?", ["Produto", "Cliente", "Vendedor"])
+
+    if opcao == "Produto":
+        produtos = carregar_excel(ARQ_PRODUTOS)
+
+        if produtos.empty:
+            st.warning("Nenhum produto cadastrado.")
+            return
+
+        item = st.selectbox(
+            "Selecione o produto",
+            produtos.index.tolist(),
+            format_func=lambda i: f"{produtos.loc[i, 'codigo']} - {produtos.loc[i, 'produto']} - {produtos.loc[i, 'status']}"
+        )
+
+        novo_status = st.selectbox("Novo status", ["ativo", "inativo"])
+
+        if st.button("Salvar status do produto"):
+            produtos.loc[item, "status"] = novo_status
+            salvar_excel(produtos, ARQ_PRODUTOS)
+            st.success("Status do produto atualizado com sucesso!")
+            st.rerun()
+
+    elif opcao == "Cliente":
+        clientes = carregar_excel(ARQ_CLIENTES)
+
+        if clientes.empty:
+            st.warning("Nenhum cliente cadastrado.")
+            return
+
+        item = st.selectbox(
+            "Selecione o cliente",
+            clientes.index.tolist(),
+            format_func=lambda i: f"{clientes.loc[i, 'codigo']} - {clientes.loc[i, 'nome']} - {clientes.loc[i, 'status']}"
+        )
+
+        novo_status = st.selectbox("Novo status", ["ativo", "inativo"])
+
+        if st.button("Salvar status do cliente"):
+            clientes.loc[item, "status"] = novo_status
+            salvar_excel(clientes, ARQ_CLIENTES)
+            st.success("Status do cliente atualizado com sucesso!")
+            st.rerun()
+
+    elif opcao == "Vendedor":
+        usuarios = carregar_excel(ARQ_USUARIOS)
+        vendedores = usuarios[usuarios["tipo"] == "vendedor"]
+
+        if vendedores.empty:
+            st.warning("Nenhum vendedor cadastrado.")
+            return
+
+        item = st.selectbox(
+            "Selecione o vendedor",
+            vendedores.index.tolist(),
+            format_func=lambda i: f"{usuarios.loc[i, 'usuario']} - {usuarios.loc[i, 'nome']} - {usuarios.loc[i, 'ativo']}"
+        )
+
+        novo_status = st.selectbox("Novo status", ["sim", "nao"])
+
+        if st.button("Salvar status do vendedor"):
+            usuarios.loc[item, "ativo"] = novo_status
+            salvar_excel(usuarios, ARQ_USUARIOS)
+            st.success("Status do vendedor atualizado com sucesso!")
+            st.rerun()
+
 def novo_pedido():
     st.header("🛒 Novo Pedido")
 
     clientes = carregar_excel(ARQ_CLIENTES)
     produtos = carregar_excel(ARQ_PRODUTOS)
 
+    clientes = clientes[clientes["status"].astype(str).str.lower() == "ativo"]
     produtos = produtos[produtos["status"].astype(str).str.lower() == "ativo"]
 
     if st.session_state["tipo"] != "admin":
         clientes = clientes[clientes["vendedor"].astype(str) == st.session_state["usuario"]]
 
     if clientes.empty:
-        st.warning("Nenhum cliente disponível para este vendedor.")
+        st.warning("Nenhum cliente ativo disponível para este vendedor.")
         return
 
     if produtos.empty:
-        st.warning("Nenhum produto cadastrado ou ativo.")
+        st.warning("Nenhum produto ativo cadastrado.")
         return
 
     busca_cliente = st.text_input("Pesquisar cliente")
@@ -499,7 +592,11 @@ def painel_admin():
 
     if not clientes.empty:
         cliente_nome = st.selectbox("Cliente", clientes["nome"].tolist())
-        vendedores = usuarios[usuarios["tipo"] == "vendedor"]["usuario"].tolist()
+        vendedores = usuarios[
+            (usuarios["tipo"] == "vendedor") &
+            (usuarios["ativo"].astype(str).str.lower() == "sim")
+        ]["usuario"].tolist()
+
         novo_vendedor = st.selectbox("Novo vendedor", vendedores)
 
         if st.button("Transferir Cliente"):
@@ -526,6 +623,7 @@ else:
                 "Cadastrar Produto",
                 "Consultar Produto",
                 "Editar Produto",
+                "Gerenciar Status",
                 "Histórico de Pedidos",
                 "Comissões",
                 "Sair"
@@ -557,6 +655,8 @@ else:
         consultar_produtos()
     elif menu == "Editar Produto":
         editar_produtos()
+    elif menu == "Gerenciar Status":
+        gerenciar_status()
     elif menu in ["Histórico de Pedidos", "Meus Pedidos"]:
         historico_pedidos()
     elif menu in ["Comissões", "Minha Comissão"]:
