@@ -33,7 +33,7 @@ def criar_bancos():
     if not os.path.exists(ARQ_CLIENTES):
         pd.DataFrame(columns=[
             "codigo", "nome", "cnpj", "telefone", "cidade",
-            "vendedor", "prazo_maximo_dias", "status", "data_cadastro"
+            "vendedor", "status", "data_cadastro"
         ]).to_excel(ARQ_CLIENTES, index=False)
 
     if not os.path.exists(ARQ_PRODUTOS):
@@ -66,20 +66,13 @@ def ajustar_bancos():
     salvar_excel(produtos, ARQ_PRODUTOS)
 
     clientes = carregar_excel(ARQ_CLIENTES)
-
     if "status" not in clientes.columns:
         clientes["status"] = "ativo"
-    if "prazo_maximo_dias" not in clientes.columns:
-        clientes["prazo_maximo_dias"] = 30
-
-    clientes["prazo_maximo_dias"] = pd.to_numeric(clientes["prazo_maximo_dias"], errors="coerce").fillna(30).astype(int)
     salvar_excel(clientes, ARQ_CLIENTES)
 
     usuarios = carregar_excel(ARQ_USUARIOS)
-
     if "ativo" not in usuarios.columns:
         usuarios["ativo"] = "sim"
-
     salvar_excel(usuarios, ARQ_USUARIOS)
 
     pedidos = carregar_excel(ARQ_PEDIDOS)
@@ -142,7 +135,6 @@ def cadastro_clientes():
         cnpj = st.text_input("CNPJ")
         telefone = st.text_input("Telefone")
         cidade = st.text_input("Cidade")
-        prazo_maximo_dias = st.number_input("Prazo máximo permitido para pagamento (dias)", min_value=0, max_value=365, value=30, step=1)
 
         if st.session_state["tipo"] == "admin":
             vendedor = st.selectbox("Vendedor responsável", vendedores)
@@ -166,7 +158,6 @@ def cadastro_clientes():
                 "telefone": telefone,
                 "cidade": cidade,
                 "vendedor": vendedor,
-                "prazo_maximo_dias": int(prazo_maximo_dias),
                 "status": "ativo",
                 "data_cadastro": datetime.now().strftime("%d/%m/%Y %H:%M")
             }
@@ -376,11 +367,8 @@ def editar_produtos():
             produtos.at[escolha, "status"] = str(novo_status)
 
             salvar_excel(produtos, ARQ_PRODUTOS)
-
             st.success(f"Produto atualizado! Desconto salvo: {novo_desconto:.1f}%")
-            st.rerun()
-
-def gerenciar_status():
+            st.rerun(def gerenciar_status():
     st.header("🔒 Gerenciar Status")
 
     if st.session_state["tipo"] != "admin":
@@ -475,8 +463,6 @@ def novo_pedido():
         return
 
     cliente = st.selectbox("Cliente", clientes_filtrados["nome"].tolist())
-    cliente_linha = clientes[clientes["nome"] == cliente].iloc[0]
-    prazo_maximo = int(cliente_linha.get("prazo_maximo_dias", 30))
 
     busca_produto = st.text_input("Pesquisar produto por nome ou código")
 
@@ -510,9 +496,9 @@ def novo_pedido():
     )
 
     prazo_pagamento_dias = st.number_input(
-        f"Prazo de pagamento (dias) - máximo permitido: {prazo_maximo} dias",
+        "Prazo de pagamento (dias)",
         min_value=0,
-        max_value=prazo_maximo,
+        max_value=365,
         value=0,
         step=1
     )
@@ -696,4 +682,4 @@ else:
     elif menu == "Painel Administrativo":
         painel_admin()
     elif menu == "Sair":
-        sair()
+        sair())
