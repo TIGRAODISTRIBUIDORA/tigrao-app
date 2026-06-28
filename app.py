@@ -914,9 +914,23 @@ def novo_pedido():
     if "itens_pedido" not in st.session_state:
         st.session_state["itens_pedido"] = []
 
-    st.subheader("1️⃣ Cliente")
+    pedidos = carregar_excel(ARQ_PEDIDOS)
+    proximo_numero = len(pedidos) + 1
 
-    busca_cliente = st.text_input("Pesquisar cliente por nome, código, CNPJ, cidade ou telefone")
+    st.subheader("📋 Dados do Pedido")
+
+    col_op, col_num, col_data = st.columns([2, 1, 1])
+    with col_op:
+        operacao = st.selectbox("Operação", ["VENDA DE MERCADORIA"])
+    with col_num:
+        st.text_input("Pedido nº", value=str(proximo_numero), disabled=True)
+    with col_data:
+        st.text_input("Data", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
+
+    col_cliente_busca, col_cliente_select = st.columns([1, 3])
+
+    with col_cliente_busca:
+        busca_cliente = st.text_input("Cliente / Código / CNPJ")
 
     if busca_cliente:
         busca = busca_cliente.lower()
@@ -934,23 +948,39 @@ def novo_pedido():
         st.warning("Nenhum cliente encontrado.")
         return
 
-    cliente = st.selectbox(
-        "Cliente",
-        clientes_filtrados["nome"].tolist()
-    )
+    with col_cliente_select:
+        cliente = st.selectbox(
+            "Nome do Cliente",
+            clientes_filtrados["nome"].tolist()
+        )
 
-    prazo_pagamento_dias = st.number_input(
-        "Prazo de pagamento (dias)",
-        min_value=0,
-        max_value=365,
-        value=0,
-        step=1
-    )
+    col_vend, col_forma, col_prazo = st.columns(3)
+
+    with col_vend:
+        st.text_input("Representante", value=st.session_state["usuario"], disabled=True)
+
+    with col_forma:
+        forma_pagamento = st.selectbox(
+            "Forma de pagamento",
+            ["Boleto bancário", "Pix", "Dinheiro", "Cartão", "Transferência", "Cheque", "Outro"]
+        )
+
+    with col_prazo:
+        prazo_pagamento_dias = st.number_input(
+            "Prazo pagamento (dias)",
+            min_value=0,
+            max_value=365,
+            value=0,
+            step=1
+        )
 
     st.divider()
-    st.subheader("2️⃣ Adicionar produtos ao pedido")
+    st.subheader("📦 Digitar Produto")
 
-    busca_produto = st.text_input("Pesquisar produto por nome ou código")
+    col_busca_produto, col_produto = st.columns([1, 3])
+
+    with col_busca_produto:
+        busca_produto = st.text_input("Código / Produto")
 
     if busca_produto:
         busca = busca_produto.lower()
@@ -965,10 +995,11 @@ def novo_pedido():
         st.warning("Nenhum produto encontrado.")
         return
 
-    produto_nome = st.selectbox(
-        "Produto",
-        produtos_filtrados["produto"].tolist()
-    )
+    with col_produto:
+        produto_nome = st.selectbox(
+            "Descrição do Produto",
+            produtos_filtrados["produto"].tolist()
+        )
 
     produto_linha = produtos[produtos["produto"] == produto_nome].iloc[0]
 
@@ -976,14 +1007,20 @@ def novo_pedido():
     preco = float(produto_linha["preco"])
     desconto_maximo = float(produto_linha.get("desconto_maximo", 0))
 
-    col_qtd, col_desc = st.columns(2)
+    col_codigo, col_un, col_qtd, col_desc, col_preco, col_total = st.columns([1, 1, 1, 1, 1, 1])
+
+    with col_codigo:
+        st.text_input("Código", value=codigo_produto, disabled=True)
+
+    with col_un:
+        st.text_input("Un", value="UN", disabled=True)
 
     with col_qtd:
-        quantidade = st.number_input("Quantidade", min_value=1, step=1)
+        quantidade = st.number_input("Quant", min_value=1, step=1)
 
     with col_desc:
         desconto_percentual = st.number_input(
-            f"Desconto (%) - máximo permitido: {desconto_maximo:.1f}%",
+            "% Desconto",
             min_value=0.0,
             max_value=desconto_maximo,
             value=0.0,
@@ -994,29 +1031,31 @@ def novo_pedido():
     valor_desconto_item = subtotal_item * (desconto_percentual / 100)
     total_item = subtotal_item - valor_desconto_item
 
-    st.info(f"Preço unitário: R$ {preco:.2f}")
-    st.info(f"Subtotal do item: R$ {subtotal_item:.2f}")
-    st.warning(f"Desconto do item: R$ {valor_desconto_item:.2f}")
-    st.success(f"Total do item: R$ {total_item:.2f}")
+    with col_preco:
+        st.text_input("Preço Unitário", value=f"R$ {preco:.2f}", disabled=True)
 
-    if st.button("➕ Adicionar Produto ao Pedido"):
+    with col_total:
+        st.text_input("Total", value=f"R$ {total_item:.2f}", disabled=True)
+
+    if st.button("➕ Adicionar produto ao pedido"):
         item = {
-            "codigo": codigo_produto,
-            "produto": produto_nome,
-            "quantidade": int(quantidade),
-            "preco": float(preco),
-            "subtotal": float(subtotal_item),
-            "desconto_percentual": float(desconto_percentual),
-            "valor_desconto": float(valor_desconto_item),
-            "total": float(total_item)
+            "Código": codigo_produto,
+            "Descrição": produto_nome,
+            "Un": "UN",
+            "Quant": int(quantidade),
+            "Tab": "A",
+            "%Desconto": float(desconto_percentual),
+            "Preço Unitário": float(preco),
+            "Total": float(total_item),
+            "Obs": ""
         }
 
         st.session_state["itens_pedido"].append(item)
-        st.success("Produto adicionado ao pedido!")
+        st.success("Produto adicionado ao pedido.")
         st.rerun()
 
     st.divider()
-    st.subheader("3️⃣ Itens adicionados ao pedido")
+    st.subheader("🧾 Produtos adicionados ao pedido")
 
     if len(st.session_state["itens_pedido"]) == 0:
         st.warning("Nenhum produto adicionado ainda.")
@@ -1025,60 +1064,55 @@ def novo_pedido():
     itens_df = pd.DataFrame(st.session_state["itens_pedido"])
 
     st.dataframe(
-        itens_df[[
-            "codigo",
-            "produto",
-            "quantidade",
-            "preco",
-            "subtotal",
-            "desconto_percentual",
-            "valor_desconto",
-            "total"
-        ]],
-        use_container_width=True
+        itens_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Preço Unitário": st.column_config.NumberColumn("Preço Unitário", format="R$ %.2f"),
+            "Total": st.column_config.NumberColumn("Total", format="R$ %.2f"),
+            "%Desconto": st.column_config.NumberColumn("%Desconto", format="%.2f%%"),
+        }
     )
-
-    remover_opcoes = [
-        f"{i} - {item['produto']} - Qtd: {item['quantidade']}"
-        for i, item in enumerate(st.session_state["itens_pedido"])
-    ]
 
     col_remover, col_limpar = st.columns(2)
 
     with col_remover:
-        item_remover = st.selectbox("Remover item do pedido", remover_opcoes)
+        opcoes_remover = [
+            f"{i} - {item['Código']} - {item['Descrição']}"
+            for i, item in enumerate(st.session_state["itens_pedido"])
+        ]
 
-        if st.button("🗑️ Remover item selecionado"):
+        item_remover = st.selectbox("Selecionar item para remover", opcoes_remover)
+
+        if st.button("🗑️ Remover item"):
             indice = int(item_remover.split(" - ")[0])
             st.session_state["itens_pedido"].pop(indice)
             st.success("Item removido.")
             st.rerun()
 
     with col_limpar:
-        if st.button("🧹 Limpar pedido inteiro"):
+        if st.button("🧹 Limpar pedido"):
             st.session_state["itens_pedido"] = []
             st.success("Pedido limpo.")
             st.rerun()
 
-    subtotal_pedido = itens_df["subtotal"].sum()
-    valor_desconto_pedido = itens_df["valor_desconto"].sum()
-    total_pedido = itens_df["total"].sum()
-
+    subtotal_pedido = sum(item["Preço Unitário"] * item["Quant"] for item in st.session_state["itens_pedido"])
+    total_pedido = sum(item["Total"] for item in st.session_state["itens_pedido"])
+    valor_desconto_pedido = subtotal_pedido - total_pedido
     percentual_comissao_vendedor = obter_comissao_vendedor(st.session_state["usuario"])
     comissao_pedido = total_pedido * percentual_comissao_vendedor
 
     st.divider()
-    st.subheader("4️⃣ Resumo do pedido")
+    st.subheader("💰 Fechamento")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Itens", len(st.session_state["itens_pedido"]))
+    col2.metric("Subtotal", f"R$ {subtotal_pedido:,.2f}")
+    col3.metric("Desconto", f"R$ {valor_desconto_pedido:,.2f}")
+    col4.metric("Total", f"R$ {total_pedido:,.2f}")
+    col5.metric("Comissão", f"R$ {comissao_pedido:,.2f}")
 
-    col1.metric("Subtotal", f"R$ {subtotal_pedido:,.2f}")
-    col2.metric("Desconto", f"R$ {valor_desconto_pedido:,.2f}")
-    col3.metric("Total", f"R$ {total_pedido:,.2f}")
-    col4.metric("Comissão", f"R$ {comissao_pedido:,.2f}")
-
-    st.info(f"Cliente: {cliente}")
-    st.info(f"Prazo de pagamento: {prazo_pagamento_dias} dias")
+    observacao = st.text_area("Observação do pedido")
 
     if st.button("💾 Salvar Pedido Completo"):
         pedidos = carregar_excel(ARQ_PEDIDOS)
@@ -1089,22 +1123,27 @@ def novo_pedido():
         novos_registros = []
 
         for item in st.session_state["itens_pedido"]:
-            comissao_item = item["total"] * percentual_comissao_vendedor
+            subtotal_linha = item["Preço Unitário"] * item["Quant"]
+            total_linha = item["Total"]
+            valor_desconto_linha = subtotal_linha - total_linha
+            comissao_linha = total_linha * percentual_comissao_vendedor
 
             novo = {
                 "numero": numero_pedido,
                 "data": data_pedido,
                 "vendedor": st.session_state["usuario"],
                 "cliente": cliente,
-                "produto": item["produto"],
-                "quantidade": item["quantidade"],
-                "preco": item["preco"],
-                "subtotal": item["subtotal"],
-                "desconto_percentual": item["desconto_percentual"],
-                "valor_desconto": item["valor_desconto"],
-                "total": item["total"],
+                "produto": item["Descrição"],
+                "quantidade": item["Quant"],
+                "preco": item["Preço Unitário"],
+                "subtotal": subtotal_linha,
+                "desconto_percentual": item["%Desconto"],
+                "valor_desconto": valor_desconto_linha,
+                "total": total_linha,
                 "prazo_pagamento_dias": int(prazo_pagamento_dias),
-                "comissao": comissao_item
+                "comissao": comissao_linha,
+                "forma_pagamento": forma_pagamento,
+                "observacao": observacao
             }
 
             novos_registros.append(novo)
@@ -1114,7 +1153,7 @@ def novo_pedido():
 
         st.session_state["itens_pedido"] = []
 
-        st.success(f"Pedido nº {numero_pedido} salvo com {len(novos_registros)} produto(s)!")
+        st.success(f"Pedido nº {numero_pedido} salvo com {len(novos_registros)} produto(s).")
         st.rerun()
 
 
