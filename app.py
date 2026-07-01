@@ -22,6 +22,21 @@ COMISSAO_PADRAO = 0.07
 
 
 # =========================
+# HTML SEGURO
+# =========================
+
+def html(codigo):
+    """
+    Usa st.html quando disponível.
+    Isso evita o problema do Streamlit mostrar <div> como texto na tela.
+    """
+    try:
+        st.html(codigo)
+    except Exception:
+        st.markdown(codigo, unsafe_allow_html=True)
+
+
+# =========================
 # BANCO
 # =========================
 
@@ -82,9 +97,12 @@ def safe_float(valor):
 
 def numero_pedido():
     pedidos = ler_excel(ARQ_PEDIDOS)
+
     if len(pedidos) == 0 or "pedido" not in pedidos.columns:
         return 1
+
     maior = pd.to_numeric(pedidos["pedido"], errors="coerce").max()
+
     return 1 if pd.isna(maior) else int(maior) + 1
 
 
@@ -120,7 +138,7 @@ def filtrar_por_usuario(pedidos):
 # =========================
 
 def css():
-    st.markdown("""
+    html("""
     <style>
     header, footer, [data-testid="stSidebar"] {
         display:none !important;
@@ -449,8 +467,14 @@ def css():
         border-radius:18px !important;
         overflow:hidden !important;
     }
+
+    div[data-testid="stHorizontalBlock"] .stButton > button {
+        min-height:44px !important;
+        font-size:20px !important;
+        padding:4px !important;
+    }
     </style>
-    """, unsafe_allow_html=True)
+    """)
 
 
 # =========================
@@ -458,48 +482,55 @@ def css():
 # =========================
 
 def get_page():
-    page = st.query_params.get("page", "dashboard")
-    if isinstance(page, list):
-        page = page[0] if page else "dashboard"
-    return page
+    return st.session_state.get("page", "dashboard")
 
 
 def ir_para(page):
-    st.query_params["page"] = page
+    st.session_state.page = page
     st.rerun()
 
 
 def menu_html():
-    page = get_page()
+    """
+    Menu feito com botões do Streamlit, sem links HTML.
+    Isso corrige o problema de deslogar ao clicar no menu.
+    """
+    html("""
+    <div style="height:14px;"></div>
+    """)
 
-    def ativo(nome):
-        return "ativo" if page == nome else ""
+    col1, col2, col3, col4, col5 = st.columns(5, gap="small")
 
-    st.markdown(f"""
-    <div class="tigrao-nav">
-        <a class="{ativo('dashboard')}" href="?page=dashboard">
-            <span class="ico">🏠</span>Início
-        </a>
-        <a class="{ativo('novo')}" href="?page=novo">
-            <span class="ico">🛒</span>Novo
-        </a>
-        <a class="{ativo('pedidos')}" href="?page=pedidos">
-            <span class="ico">📋</span>Pedidos
-        </a>
-        <a class="{ativo('comissao')}" href="?page=comissao">
-            <span class="ico">💰</span>Com.
-        </a>
-        <a class="{ativo('mais')}" href="?page=mais">
-            <span class="ico">☰</span>Mais
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
+    atual = get_page()
+
+    def label(pagina, icone):
+        return f"{icone}" if atual != pagina else f"✅{icone}"
+
+    with col1:
+        if st.button(label("dashboard", "🏠"), key="nav_dashboard", use_container_width=True):
+            ir_para("dashboard")
+
+    with col2:
+        if st.button(label("novo", "🛒"), key="nav_novo", use_container_width=True):
+            ir_para("novo")
+
+    with col3:
+        if st.button(label("pedidos", "📋"), key="nav_pedidos", use_container_width=True):
+            ir_para("pedidos")
+
+    with col4:
+        if st.button(label("comissao", "💰"), key="nav_comissao", use_container_width=True):
+            ir_para("comissao")
+
+    with col5:
+        if st.button(label("mais", "☰"), key="nav_mais", use_container_width=True):
+            ir_para("mais")
 
 
 def topo(titulo, subtitulo):
     perfil = st.session_state.get("perfil", "VENDEDOR")
 
-    st.markdown(f"""
+    html(f"""
     <div class="topo">
         <div class="topo-linha">
             <div class="hamb">☰</div>
@@ -516,11 +547,11 @@ def topo(titulo, subtitulo):
         </div>
     </div>
     <div class="content">
-    """, unsafe_allow_html=True)
+    """)
 
 
 def fim():
-    st.markdown("</div>", unsafe_allow_html=True)
+    html("</div>")
 
 
 # =========================
@@ -534,7 +565,7 @@ def login():
     if st.session_state.logado:
         return
 
-    st.markdown("""
+    html("""
     <div style="height:45px;"></div>
     <div style="text-align:center;">
         <div style="font-size:70px;">🐯</div>
@@ -542,7 +573,7 @@ def login():
         <div style="color:#ff8500;font-weight:1000;letter-spacing:5px;margin-top:8px;">DISTRIBUIDORA</div>
     </div>
     <div style="height:25px;"></div>
-    """, unsafe_allow_html=True)
+    """)
 
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
@@ -574,7 +605,7 @@ def login():
             st.session_state.comissao = float(user.get("comissao", COMISSAO_PADRAO))
             st.session_state.carrinho = []
 
-            st.query_params["page"] = "dashboard"
+            st.session_state.page = "dashboard"
             st.rerun()
 
     st.stop()
@@ -596,7 +627,7 @@ def dashboard():
     total_vendas = pedidos["total"].sum() if len(pedidos) else 0
     total_comissao = total_vendas * st.session_state.get("comissao", COMISSAO_PADRAO)
 
-    st.markdown(f"""
+    html(f"""
     <div class="cards">
         <div class="metric">
             <div class="metric-icon">📋</div>
@@ -619,9 +650,9 @@ def dashboard():
             <div class="metric-sub">Total vendido</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-    st.markdown('<div class="section-title">🕘 Últimos pedidos</div><div class="line-orange"></div>', unsafe_allow_html=True)
+    html('<div class="section-title">🕘 Últimos pedidos</div><div class="line-orange"></div>')
 
     resumo = resumo_pedidos(pedidos).sort_values("pedido", ascending=False).head(5)
 
@@ -629,14 +660,14 @@ def dashboard():
         st.info("Nenhum pedido lançado.")
     else:
         for _, row in resumo.iterrows():
-            st.markdown(f"""
+            html(f"""
             <div class="pedido-card">
                 <b>Pedido #{row["pedido"]}</b><br>
                 {row["cliente"]}<br>
                 <small>{row["data"]}</small><br>
                 <b style="color:#ff8500">{dinheiro(row["total"])}</b> — {row["status"]}
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
     fim()
 
@@ -650,7 +681,7 @@ def novo_pedido():
     if "carrinho" not in st.session_state:
         st.session_state.carrinho = []
 
-    st.markdown('<div class="box">', unsafe_allow_html=True)
+    html('<div class="box">')
 
     busca_cliente = st.text_input("Buscar cliente", placeholder="Digite nome, código ou iniciais")
 
@@ -689,14 +720,14 @@ def novo_pedido():
         produto = produtos_filtrados.iloc[idx].to_dict()
 
     if produto:
-        st.markdown(f"""
+        html(f"""
         <div class="produto-card">
             <b>{produto["produto"]}</b><br>
             Código: {produto["codigo"]}<br>
             Fornecedor: {produto.get("fornecedor", "")}<br>
             Preço: <b>{dinheiro(produto["preco"])}</b>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     qtd = st.number_input("Quantidade", min_value=0, value=0, step=1)
     desc = st.number_input("% Desconto", min_value=0.0, value=0.0, step=1.0)
@@ -705,12 +736,12 @@ def novo_pedido():
     subtotal = preco * qtd
     total_item = subtotal - (subtotal * desc / 100)
 
-    st.markdown(f"""
+    html(f"""
     <div class="total-item">
         <div class="total-label">TOTAL DO ITEM</div>
         <div class="total-value">{dinheiro(total_item)}</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     if st.button("➕ ADICIONAR AO CARRINHO", use_container_width=True):
         if not produto:
@@ -734,7 +765,7 @@ def novo_pedido():
             time.sleep(0.4)
             st.rerun()
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    html('</div>')
 
     carrinho(cliente)
 
@@ -742,20 +773,20 @@ def novo_pedido():
 
 
 def carrinho(cliente):
-    st.markdown('<div class="section-title">🛒 Carrinho</div><div class="line-orange"></div>', unsafe_allow_html=True)
+    html('<div class="section-title">🛒 Carrinho</div><div class="line-orange"></div>')
 
     if len(st.session_state.carrinho) == 0:
         st.info("Nenhum produto adicionado.")
         return
 
     for i, item in enumerate(st.session_state.carrinho):
-        st.markdown(f"""
+        html(f"""
         <div class="pedido-card">
             <b>{item["produto"]}</b><br>
             Qtd: {item["quantidade"]} | Unit: {dinheiro(item["preco"])}<br>
             Total: <b style="color:#ff8500">{dinheiro(item["total"])}</b>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         if st.button(f"🗑 Remover item {i+1}", key=f"del_{i}", use_container_width=True):
             st.session_state.carrinho.pop(i)
@@ -765,13 +796,13 @@ def carrinho(cliente):
     total = sum(safe_float(x["total"]) for x in st.session_state.carrinho)
     desconto = subtotal - total
 
-    st.markdown(f"""
+    html(f"""
     <div class="resumo">
         <div class="resumo-row"><span>Subtotal</span><span>{dinheiro(subtotal)}</span></div>
         <div class="resumo-row"><span>Desconto</span><span>{dinheiro(desconto)}</span></div>
         <div class="resumo-row resumo-total"><span>Total</span><span>{dinheiro(total)}</span></div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     if st.button("✅ FINALIZAR PEDIDO", use_container_width=True):
         pedidos = ler_excel(ARQ_PEDIDOS)
@@ -821,7 +852,7 @@ def pedidos_tela():
         st.info("Nenhum pedido lançado.")
     else:
         for _, row in resumo.iterrows():
-            st.markdown(f"""
+            html(f"""
             <div class="pedido-card">
                 <b>Pedido #{row["pedido"]}</b><br>
                 Cliente: {row["cliente"]}<br>
@@ -830,7 +861,7 @@ def pedidos_tela():
                 Total: <b style="color:#ff8500">{dinheiro(row["total"])}</b><br>
                 Status: <b>{row["status"]}</b>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             if str(row["status"]).upper() == "PENDENTE":
                 if st.button(f"✏️ Editar pedido {row['pedido']}", key=f"edit_{row['pedido']}", use_container_width=True):
@@ -915,7 +946,7 @@ def comissao_tela():
     vendas = pedidos["total"].sum() if len(pedidos) else 0
     comissao = vendas * st.session_state.get("comissao", COMISSAO_PADRAO)
 
-    st.markdown(f"""
+    html(f"""
     <div class="cards">
         <div class="metric full">
             <div class="metric-icon">💲</div>
@@ -931,7 +962,7 @@ def comissao_tela():
             <div class="metric-sub">7%</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     fim()
 
@@ -944,7 +975,7 @@ def admin_tela():
         fim()
         return
 
-    st.markdown('<div class="box">', unsafe_allow_html=True)
+    html('<div class="box">')
 
     if st.button("👥 Usuários", use_container_width=True):
         ir_para("admin_usuarios")
@@ -955,7 +986,7 @@ def admin_tela():
     if st.button("📦 Produtos", use_container_width=True):
         ir_para("admin_produtos")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    html('</div>')
 
     fim()
 
@@ -1100,10 +1131,10 @@ def admin_produtos():
 def mais_tela():
     topo("Mais", "Opções do sistema")
 
-    st.markdown('<div class="box">', unsafe_allow_html=True)
+    html('<div class="box">')
     st.write(f"**Usuário:** {st.session_state.get('nome')}")
     st.write(f"**Perfil:** {st.session_state.get('perfil')}")
-    st.markdown('</div>', unsafe_allow_html=True)
+    html('</div>')
 
     if st.session_state.get("perfil") == "ADMIN":
         if st.button("⚙️ ADMINISTRAÇÃO", use_container_width=True):
@@ -1111,7 +1142,6 @@ def mais_tela():
 
     if st.button("🚪 SAIR", use_container_width=True):
         st.session_state.clear()
-        st.query_params.clear()
         st.rerun()
 
     fim()
