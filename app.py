@@ -692,7 +692,7 @@ def novo_pedido():
         )
 
         if st.button("➕ CADASTRAR NOVO CLIENTE", key="btn_cadastrar_cliente_novo_pedido", use_container_width=True):
-            ir_para("cadastrar_cliente")
+            ir_para("admin_clientes")
 
         cliente = None
 
@@ -1175,10 +1175,6 @@ def admin_usuarios():
 def admin_clientes():
     topo("Clientes", "Cadastro de clientes", "🏪")
 
-    if st.session_state.get("perfil") != "ADMIN":
-        st.error("Acesso negado.")
-        return
-
     clientes = ler_excel(ARQ_CLIENTES)
 
     with st.form("form_cliente"):
@@ -1215,7 +1211,10 @@ def admin_clientes():
     st.dataframe(clientes, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        ir_para("admin")
+        if st.session_state.get("perfil") == "ADMIN":
+            ir_para("admin")
+        else:
+            ir_para("novo")
 
 
 def admin_produtos():
