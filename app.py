@@ -1,6 +1,7 @@
 import os
 import time
 from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 
@@ -81,15 +82,14 @@ def safe_float(valor):
 
 def numero_pedido():
     pedidos = ler_excel(ARQ_PEDIDOS)
-    if len(pedidos) == 0:
+    if len(pedidos) == 0 or "pedido" not in pedidos.columns:
         return 1
-
     maior = pd.to_numeric(pedidos["pedido"], errors="coerce").max()
     return 1 if pd.isna(maior) else int(maior) + 1
 
 
 def resumo_pedidos(pedidos):
-    if len(pedidos) == 0:
+    if len(pedidos) == 0 or "pedido" not in pedidos.columns:
         return pd.DataFrame(columns=["pedido", "data", "vendedor", "cliente", "total", "status"])
 
     pedidos = pedidos.copy()
@@ -104,8 +104,19 @@ def resumo_pedidos(pedidos):
     })
 
 
+def filtrar_por_usuario(pedidos):
+    if len(pedidos) == 0:
+        return pedidos
+
+    if st.session_state.get("perfil") != "ADMIN":
+        vendedor = st.session_state.get("nome", "")
+        pedidos = pedidos[pedidos["vendedor"].astype(str) == vendedor].copy()
+
+    return pedidos
+
+
 # =========================
-# CSS MOBILE
+# CSS
 # =========================
 
 def css():
@@ -121,7 +132,7 @@ def css():
 
     .block-container {
         max-width:480px !important;
-        padding:0 12px 105px 12px !important;
+        padding:0 12px 110px 12px !important;
         margin:auto !important;
     }
 
@@ -145,18 +156,25 @@ def css():
         justify-content:space-between;
     }
 
+    .hamb {
+        color:#ff8500 !important;
+        font-size:28px;
+        font-weight:1000;
+    }
+
     .logo {
         text-align:center;
         color:white !important;
         font-size:25px;
         font-weight:1000;
         line-height:1;
+        letter-spacing:1px;
     }
 
     .logo-sub {
         color:#ff8500 !important;
         font-size:10px;
-        letter-spacing:4px;
+        letter-spacing:5px;
         margin-top:5px;
         font-weight:1000;
     }
@@ -168,12 +186,6 @@ def css():
         padding:7px 9px;
         font-weight:1000;
         font-size:11px;
-    }
-
-    .hamb {
-        color:#ff8500 !important;
-        font-size:26px;
-        font-weight:1000;
     }
 
     .hero {
@@ -260,6 +272,7 @@ def css():
         font-size:20px;
         font-weight:1000;
         margin-top:6px;
+        word-break:break-word;
     }
 
     .metric-sub {
@@ -299,10 +312,15 @@ def css():
         box-shadow:0 8px 20px rgba(15,23,42,.10);
         margin-bottom:12px;
         border-left:5px solid #ff8500;
+        color:#111 !important;
     }
 
     .pedido-card b {
         color:#111 !important;
+    }
+
+    .pedido-card small {
+        color:#64748b !important;
     }
 
     .produto-card {
@@ -313,6 +331,10 @@ def css():
         background:white;
         font-weight:800;
         color:#111;
+    }
+
+    .produto-card b {
+        color:#0b8de3 !important;
     }
 
     .total-item {
@@ -360,7 +382,7 @@ def css():
         font-size:20px;
     }
 
-    .bottom-nav {
+    .tigrao-nav {
         position:fixed;
         bottom:0;
         left:50%;
@@ -368,39 +390,39 @@ def css():
         width:100%;
         max-width:480px;
         background:#111;
-        border-radius:26px 26px 0 0;
-        padding:8px 8px 10px 8px;
+        border-radius:24px 24px 0 0;
+        padding:8px 6px 10px 6px;
         z-index:999999;
         display:flex;
+        flex-direction:row;
         justify-content:space-around;
+        align-items:center;
         box-shadow:0 -8px 24px rgba(0,0,0,.35);
     }
 
-    .bottom-nav a {
+    .tigrao-nav a {
         text-decoration:none !important;
         color:white !important;
-        font-size:11px;
+        font-size:10px;
         font-weight:900;
         text-align:center;
-        width:20%;
-        padding:6px 0;
-        border-radius:16px;
+        flex:1;
+        padding:5px 0;
+        border-radius:14px;
         display:block;
+        line-height:1.15;
     }
 
-    .bottom-nav .ico {
-        font-size:23px;
+    .tigrao-nav .ico {
+        font-size:22px;
         display:block;
         line-height:1.1;
+        margin-bottom:2px;
     }
 
-    .bottom-nav .ativo {
+    .tigrao-nav .ativo {
         background:#ff8500;
         color:#111 !important;
-    }
-
-    .admin-link {
-        background:#0b8de3 !important;
     }
 
     .stButton > button {
@@ -437,30 +459,24 @@ def css():
 
 def get_page():
     page = st.query_params.get("page", "dashboard")
+    if isinstance(page, list):
+        page = page[0] if page else "dashboard"
     return page
 
 
-def set_page(page):
+def ir_para(page):
     st.query_params["page"] = page
+    st.rerun()
 
 
 def menu_html():
-    perfil = st.session_state.get("perfil", "VENDEDOR")
     page = get_page()
 
     def ativo(nome):
         return "ativo" if page == nome else ""
 
-    admin = ""
-    if perfil == "ADMIN":
-        admin = f"""
-        <a class="{ativo('admin')} admin-link" href="?page=admin">
-            <span class="ico">⚙️</span>Admin
-        </a>
-        """
-
     st.markdown(f"""
-    <div class="bottom-nav">
+    <div class="tigrao-nav">
         <a class="{ativo('dashboard')}" href="?page=dashboard">
             <span class="ico">🏠</span>Início
         </a>
@@ -471,9 +487,8 @@ def menu_html():
             <span class="ico">📋</span>Pedidos
         </a>
         <a class="{ativo('comissao')}" href="?page=comissao">
-            <span class="ico">💰</span>Comissão
+            <span class="ico">💰</span>Com.
         </a>
-        {admin}
         <a class="{ativo('mais')}" href="?page=mais">
             <span class="ico">☰</span>Mais
         </a>
@@ -572,12 +587,7 @@ def login():
 def dashboard():
     topo("Dashboard", "Resumo da operação")
 
-    pedidos = ler_excel(ARQ_PEDIDOS)
-    vendedor = st.session_state.get("nome", "")
-    perfil = st.session_state.get("perfil", "VENDEDOR")
-
-    if len(pedidos) and perfil != "ADMIN":
-        pedidos = pedidos[pedidos["vendedor"].astype(str) == vendedor].copy()
+    pedidos = filtrar_por_usuario(ler_excel(ARQ_PEDIDOS))
 
     if len(pedidos):
         pedidos["total"] = pd.to_numeric(pedidos["total"], errors="coerce").fillna(0)
@@ -645,7 +655,7 @@ def novo_pedido():
     busca_cliente = st.text_input("Buscar cliente", placeholder="Digite nome, código ou iniciais")
 
     clientes_filtrados = clientes.copy()
-    if busca_cliente.strip():
+    if len(clientes_filtrados) and busca_cliente.strip():
         termo = busca_cliente.strip().lower()
         clientes_filtrados = clientes[
             clientes["cliente"].astype(str).str.lower().str.contains(termo, na=False) |
@@ -659,7 +669,7 @@ def novo_pedido():
     busca_produto = st.text_input("Buscar produto", placeholder="Digite código ou nome do produto")
 
     produtos_filtrados = produtos.copy()
-    if busca_produto.strip():
+    if len(produtos_filtrados) and busca_produto.strip():
         termo = busca_produto.strip().lower()
         produtos_filtrados = produtos[
             produtos["produto"].astype(str).str.lower().str.contains(termo, na=False) |
@@ -794,8 +804,7 @@ def carrinho(cliente):
         st.session_state.carrinho = []
         st.success(f"Pedido nº {numero} salvo com sucesso!")
         time.sleep(1)
-        st.query_params["page"] = "pedidos"
-        st.rerun()
+        ir_para("pedidos")
 
     if st.button("🧹 LIMPAR CARRINHO", use_container_width=True):
         st.session_state.carrinho = []
@@ -805,13 +814,7 @@ def carrinho(cliente):
 def pedidos_tela():
     topo("Pedidos", "Histórico de pedidos")
 
-    pedidos = ler_excel(ARQ_PEDIDOS)
-    vendedor = st.session_state.get("nome", "")
-    perfil = st.session_state.get("perfil", "VENDEDOR")
-
-    if len(pedidos) and perfil != "ADMIN":
-        pedidos = pedidos[pedidos["vendedor"].astype(str) == vendedor].copy()
-
+    pedidos = filtrar_por_usuario(ler_excel(ARQ_PEDIDOS))
     resumo = resumo_pedidos(pedidos).sort_values("pedido", ascending=False)
 
     if len(resumo) == 0:
@@ -832,8 +835,7 @@ def pedidos_tela():
             if str(row["status"]).upper() == "PENDENTE":
                 if st.button(f"✏️ Editar pedido {row['pedido']}", key=f"edit_{row['pedido']}", use_container_width=True):
                     st.session_state.pedido_editando = int(row["pedido"])
-                    st.query_params["page"] = "editar"
-                    st.rerun()
+                    ir_para("editar")
 
     fim()
 
@@ -843,11 +845,17 @@ def editar_pedido():
 
     numero = st.session_state.get("pedido_editando")
     pedidos = ler_excel(ARQ_PEDIDOS)
-
     dados = pedidos[pedidos["pedido"] == numero].copy()
 
     if len(dados) == 0:
         st.error("Pedido não encontrado.")
+        fim()
+        return
+
+    status = str(dados["status"].iloc[0]).upper()
+
+    if status == "FATURADO" and st.session_state.get("perfil") != "ADMIN":
+        st.error("Pedido faturado não pode ser alterado pelo vendedor.")
         fim()
         return
 
@@ -888,12 +896,10 @@ def editar_pedido():
 
             st.success("Pedido atualizado.")
             time.sleep(0.8)
-            st.query_params["page"] = "pedidos"
-            st.rerun()
+            ir_para("pedidos")
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.query_params["page"] = "pedidos"
-        st.rerun()
+        ir_para("pedidos")
 
     fim()
 
@@ -901,11 +907,7 @@ def editar_pedido():
 def comissao_tela():
     topo("Comissão", "Resumo da comissão")
 
-    pedidos = ler_excel(ARQ_PEDIDOS)
-    vendedor = st.session_state.get("nome", "")
-
-    if len(pedidos) and st.session_state.get("perfil") != "ADMIN":
-        pedidos = pedidos[pedidos["vendedor"].astype(str) == vendedor].copy()
+    pedidos = filtrar_por_usuario(ler_excel(ARQ_PEDIDOS))
 
     if len(pedidos):
         pedidos["total"] = pd.to_numeric(pedidos["total"], errors="coerce").fillna(0)
@@ -945,16 +947,13 @@ def admin_tela():
     st.markdown('<div class="box">', unsafe_allow_html=True)
 
     if st.button("👥 Usuários", use_container_width=True):
-        st.query_params["page"] = "admin_usuarios"
-        st.rerun()
+        ir_para("admin_usuarios")
 
     if st.button("🏪 Clientes", use_container_width=True):
-        st.query_params["page"] = "admin_clientes"
-        st.rerun()
+        ir_para("admin_clientes")
 
     if st.button("📦 Produtos", use_container_width=True):
-        st.query_params["page"] = "admin_produtos"
-        st.rerun()
+        ir_para("admin_produtos")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -963,6 +962,11 @@ def admin_tela():
 
 def admin_usuarios():
     topo("Usuários", "Cadastro de vendedores")
+
+    if st.session_state.get("perfil") != "ADMIN":
+        st.error("Acesso negado.")
+        fim()
+        return
 
     usuarios = ler_excel(ARQ_USUARIOS)
 
@@ -995,14 +999,18 @@ def admin_usuarios():
     st.dataframe(usuarios, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.query_params["page"] = "admin"
-        st.rerun()
+        ir_para("admin")
 
     fim()
 
 
 def admin_clientes():
     topo("Clientes", "Cadastro de clientes")
+
+    if st.session_state.get("perfil") != "ADMIN":
+        st.error("Acesso negado.")
+        fim()
+        return
 
     clientes = ler_excel(ARQ_CLIENTES)
 
@@ -1034,18 +1042,24 @@ def admin_clientes():
             st.success("Cliente cadastrado.")
             time.sleep(0.5)
             st.rerun()
+        else:
+            st.warning("Informe o nome do cliente.")
 
     st.dataframe(clientes, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.query_params["page"] = "admin"
-        st.rerun()
+        ir_para("admin")
 
     fim()
 
 
 def admin_produtos():
     topo("Produtos", "Cadastro de produtos")
+
+    if st.session_state.get("perfil") != "ADMIN":
+        st.error("Acesso negado.")
+        fim()
+        return
 
     produtos = ler_excel(ARQ_PRODUTOS)
 
@@ -1072,12 +1086,13 @@ def admin_produtos():
             st.success("Produto cadastrado.")
             time.sleep(0.5)
             st.rerun()
+        else:
+            st.warning("Informe código e produto.")
 
     st.dataframe(produtos, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.query_params["page"] = "admin"
-        st.rerun()
+        ir_para("admin")
 
     fim()
 
@@ -1089,6 +1104,10 @@ def mais_tela():
     st.write(f"**Usuário:** {st.session_state.get('nome')}")
     st.write(f"**Perfil:** {st.session_state.get('perfil')}")
     st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state.get("perfil") == "ADMIN":
+        if st.button("⚙️ ADMINISTRAÇÃO", use_container_width=True):
+            ir_para("admin")
 
     if st.button("🚪 SAIR", use_container_width=True):
         st.session_state.clear()
