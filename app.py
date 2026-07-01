@@ -1,14 +1,13 @@
 import os
 import time
 from datetime import datetime
-
 import pandas as pd
 import streamlit as st
 
 st.set_page_config(
     page_title="Tigrão App",
     page_icon="🐯",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
@@ -22,41 +21,37 @@ COMISSAO_PADRAO = 0.07
 
 
 # =========================
-# BANCO DE DADOS
+# BANCO
 # =========================
 
 def criar_banco():
     os.makedirs(PASTA_DADOS, exist_ok=True)
 
     if not os.path.exists(ARQ_USUARIOS):
-        usuarios = pd.DataFrame([
+        pd.DataFrame([
             {"usuario": "admin", "senha": "admin123", "nome": "Administrador", "perfil": "ADMIN", "comissao": 0.07},
             {"usuario": "vendedor", "senha": "123", "nome": "Vendedor", "perfil": "VENDEDOR", "comissao": 0.07},
-        ])
-        usuarios.to_excel(ARQ_USUARIOS, index=False)
+        ]).to_excel(ARQ_USUARIOS, index=False)
 
     if not os.path.exists(ARQ_CLIENTES):
-        clientes = pd.DataFrame([
+        pd.DataFrame([
             {"codigo": 1, "cliente": "NELSON DAS GALAXIAS", "cnpj": "", "telefone": "", "cidade": ""},
             {"codigo": 2, "cliente": "DROGANNE MEDICAMENTOS E PERFUMARIA LTDA", "cnpj": "", "telefone": "", "cidade": ""},
             {"codigo": 3, "cliente": "NATURA TERRA COMERCIO E SERVICOS LTDA", "cnpj": "", "telefone": "", "cidade": ""},
-        ])
-        clientes.to_excel(ARQ_CLIENTES, index=False)
+        ]).to_excel(ARQ_CLIENTES, index=False)
 
     if not os.path.exists(ARQ_PRODUTOS):
-        produtos = pd.DataFrame([
+        pd.DataFrame([
             {"codigo": "68.0", "produto": "BENETONICO 500M", "un": "UN", "preco": 10.21, "fornecedor": "ARTE NATIVA"},
             {"codigo": "103.0", "produto": "APIS FRESH SPRAY EXTRA FORTE 35ML", "un": "UN", "preco": 5.82, "fornecedor": "ARTE NATIVA"},
             {"codigo": "178.0", "produto": "BALDONI EXTRATO DE PROPOLIS VERDE 30ML", "un": "UN", "preco": 20.89, "fornecedor": "BALDONI"},
-        ])
-        produtos.to_excel(ARQ_PRODUTOS, index=False)
+        ]).to_excel(ARQ_PRODUTOS, index=False)
 
     if not os.path.exists(ARQ_PEDIDOS):
-        pedidos = pd.DataFrame(columns=[
+        pd.DataFrame(columns=[
             "pedido", "data", "vendedor", "cliente", "codigo", "produto",
             "un", "quantidade", "preco", "desconto", "subtotal", "total", "status"
-        ])
-        pedidos.to_excel(ARQ_PEDIDOS, index=False)
+        ]).to_excel(ARQ_PEDIDOS, index=False)
 
 
 def ler_excel(caminho):
@@ -86,20 +81,15 @@ def safe_float(valor):
 
 def numero_pedido():
     pedidos = ler_excel(ARQ_PEDIDOS)
-
-    if len(pedidos) == 0 or "pedido" not in pedidos.columns:
+    if len(pedidos) == 0:
         return 1
 
     maior = pd.to_numeric(pedidos["pedido"], errors="coerce").max()
-
-    if pd.isna(maior):
-        return 1
-
-    return int(maior) + 1
+    return 1 if pd.isna(maior) else int(maior) + 1
 
 
 def resumo_pedidos(pedidos):
-    if len(pedidos) == 0 or "pedido" not in pedidos.columns:
+    if len(pedidos) == 0:
         return pd.DataFrame(columns=["pedido", "data", "vendedor", "cliente", "total", "status"])
 
     pedidos = pedidos.copy()
@@ -115,7 +105,7 @@ def resumo_pedidos(pedidos):
 
 
 # =========================
-# CSS
+# CSS MOBILE
 # =========================
 
 def css():
@@ -130,8 +120,9 @@ def css():
     }
 
     .block-container {
-        max-width:980px !important;
-        padding:0 0 115px 0 !important;
+        max-width:480px !important;
+        padding:0 12px 105px 12px !important;
+        margin:auto !important;
     }
 
     * {
@@ -141,8 +132,9 @@ def css():
 
     .topo {
         background:#111;
-        padding:22px 26px 0 26px;
-        border-radius:0 0 34px 34px;
+        margin:0 -12px 0 -12px;
+        padding:18px 18px 0 18px;
+        border-radius:0 0 30px 30px;
         box-shadow:0 8px 24px rgba(0,0,0,.25);
         overflow:hidden;
     }
@@ -151,44 +143,42 @@ def css():
         display:flex;
         align-items:center;
         justify-content:space-between;
-        color:white;
-    }
-
-    .hamb {
-        color:#ff8500 !important;
-        font-size:34px;
-        font-weight:1000;
     }
 
     .logo {
         text-align:center;
         color:white !important;
-        font-size:32px;
+        font-size:25px;
         font-weight:1000;
-        letter-spacing:1px;
         line-height:1;
     }
 
     .logo-sub {
         color:#ff8500 !important;
-        font-size:12px;
-        letter-spacing:6px;
+        font-size:10px;
+        letter-spacing:4px;
         margin-top:5px;
         font-weight:1000;
     }
 
     .perfil {
-        border:3px solid #ff8500;
-        border-radius:26px;
+        border:2px solid #ff8500;
+        border-radius:20px;
         color:white !important;
-        padding:9px 12px;
+        padding:7px 9px;
         font-weight:1000;
-        font-size:14px;
+        font-size:11px;
+    }
+
+    .hamb {
+        color:#ff8500 !important;
+        font-size:26px;
+        font-weight:1000;
     }
 
     .hero {
-        margin:20px -26px 0 -26px;
-        padding:38px 36px 94px 36px;
+        margin:16px -18px 0 -18px;
+        padding:28px 22px 72px 22px;
         background:linear-gradient(135deg,#ff8500,#ff9d1c);
         position:relative;
         overflow:hidden;
@@ -197,15 +187,15 @@ def css():
     .hero:after {
         content:"🐯";
         position:absolute;
-        right:28px;
-        top:5px;
-        font-size:170px;
+        right:18px;
+        top:0px;
+        font-size:120px;
         opacity:.14;
     }
 
     .hero-title {
         color:#111 !important;
-        font-size:44px;
+        font-size:31px;
         font-weight:1000;
         margin:0;
         position:relative;
@@ -214,96 +204,112 @@ def css():
 
     .hero-sub {
         color:#111 !important;
-        font-size:21px;
-        font-weight:700;
-        margin-top:10px;
+        font-size:16px;
+        font-weight:800;
+        margin-top:8px;
         position:relative;
         z-index:2;
     }
 
     .content {
-        padding:0 24px;
-        margin-top:-62px;
+        margin-top:-48px;
         position:relative;
         z-index:5;
     }
 
     .cards {
         display:grid;
-        grid-template-columns:repeat(3,1fr);
-        gap:16px;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
     }
 
     .metric {
         background:white;
-        border-radius:24px;
-        padding:24px 14px;
+        border-radius:20px;
+        padding:14px 10px;
         text-align:center;
-        box-shadow:0 8px 24px rgba(15,23,42,.12);
-        min-height:185px;
+        box-shadow:0 8px 20px rgba(15,23,42,.12);
+        min-height:125px;
+    }
+
+    .metric.full {
+        grid-column:1 / 3;
     }
 
     .metric-icon {
-        width:76px;
-        height:76px;
+        width:48px;
+        height:48px;
         background:#111;
-        border-radius:20px;
+        border-radius:15px;
         display:inline-flex;
         align-items:center;
         justify-content:center;
         color:#ff8500 !important;
-        font-size:38px;
-        margin-bottom:14px;
+        font-size:26px;
+        margin-bottom:8px;
     }
 
     .metric-title {
         color:#777 !important;
-        font-size:16px;
+        font-size:12px;
         font-weight:1000;
     }
 
     .metric-value {
         color:#111 !important;
-        font-size:28px;
+        font-size:20px;
         font-weight:1000;
-        margin-top:10px;
+        margin-top:6px;
     }
 
     .metric-sub {
         color:#ff8500 !important;
-        font-size:15px;
+        font-size:12px;
         font-weight:900;
-        margin-top:10px;
+        margin-top:6px;
     }
 
     .section-title {
-        margin-top:34px;
+        margin-top:24px;
         color:#111 !important;
-        font-size:30px;
+        font-size:24px;
         font-weight:1000;
     }
 
     .line-orange {
-        width:58px;
+        width:48px;
         height:4px;
         background:#ff8500;
         border-radius:8px;
-        margin:8px 0 16px 0;
+        margin:6px 0 12px 0;
     }
 
     .box {
         background:white;
-        border-radius:24px;
-        padding:20px;
-        box-shadow:0 8px 24px rgba(15,23,42,.10);
-        margin-bottom:18px;
+        border-radius:22px;
+        padding:16px;
+        box-shadow:0 8px 20px rgba(15,23,42,.10);
+        margin-bottom:14px;
+    }
+
+    .pedido-card {
+        background:white;
+        border-radius:20px;
+        padding:15px;
+        box-shadow:0 8px 20px rgba(15,23,42,.10);
+        margin-bottom:12px;
+        border-left:5px solid #ff8500;
+    }
+
+    .pedido-card b {
+        color:#111 !important;
     }
 
     .produto-card {
         border:2px solid #ff8500;
         border-radius:18px;
-        padding:14px;
-        margin:12px 0;
+        padding:12px;
+        margin:10px 0;
         background:white;
         font-weight:800;
         color:#111;
@@ -311,40 +317,37 @@ def css():
 
     .total-item {
         background:#0b8de3;
-        border-radius:22px;
-        padding:18px;
+        border-radius:20px;
+        padding:16px;
         text-align:center;
-        margin:14px 0;
-    }
-
-    .total-item div {
-        color:white !important;
+        margin:12px 0;
     }
 
     .total-label {
-        font-size:13px;
+        color:white !important;
+        font-size:12px;
         font-weight:1000;
     }
 
     .total-value {
-        font-size:34px;
+        color:white !important;
+        font-size:30px;
         font-weight:1000;
-        margin-top:8px;
+        margin-top:6px;
     }
 
     .resumo {
         background:#111827;
-        border-radius:22px;
-        padding:18px;
-        margin-top:16px;
+        border-radius:20px;
+        padding:16px;
+        margin-top:14px;
     }
 
     .resumo-row {
         display:flex;
         justify-content:space-between;
         font-weight:1000;
-        margin-bottom:10px;
-        color:white;
+        margin-bottom:9px;
     }
 
     .resumo-row span {
@@ -353,26 +356,51 @@ def css():
 
     .resumo-total {
         border-top:1px solid rgba(255,255,255,.25);
-        padding-top:12px;
-        font-size:22px;
+        padding-top:11px;
+        font-size:20px;
     }
 
-    .bottom-space {
-        height:95px;
-    }
-
-    .st-key-bottom_nav {
+    .bottom-nav {
         position:fixed;
-        left:50%;
         bottom:0;
+        left:50%;
         transform:translateX(-50%);
         width:100%;
-        max-width:980px;
+        max-width:480px;
         background:#111;
-        border-radius:28px 28px 0 0;
-        padding:10px 18px 14px 18px;
-        z-index:99999;
-        box-shadow:0 -8px 24px rgba(0,0,0,.28);
+        border-radius:26px 26px 0 0;
+        padding:8px 8px 10px 8px;
+        z-index:999999;
+        display:flex;
+        justify-content:space-around;
+        box-shadow:0 -8px 24px rgba(0,0,0,.35);
+    }
+
+    .bottom-nav a {
+        text-decoration:none !important;
+        color:white !important;
+        font-size:11px;
+        font-weight:900;
+        text-align:center;
+        width:20%;
+        padding:6px 0;
+        border-radius:16px;
+        display:block;
+    }
+
+    .bottom-nav .ico {
+        font-size:23px;
+        display:block;
+        line-height:1.1;
+    }
+
+    .bottom-nav .ativo {
+        background:#ff8500;
+        color:#111 !important;
+    }
+
+    .admin-link {
+        background:#0b8de3 !important;
     }
 
     .stButton > button {
@@ -382,14 +410,6 @@ def css():
         border:none !important;
         background:#0b8de3 !important;
         color:white !important;
-    }
-
-    .st-key-bottom_nav .stButton > button {
-        background:transparent !important;
-        color:white !important;
-        box-shadow:none !important;
-        font-size:13px !important;
-        padding:4px !important;
     }
 
     input, textarea {
@@ -403,111 +423,63 @@ def css():
         min-height:48px !important;
     }
 
-    @media(max-width:720px) {
-        .block-container {
-            max-width:100% !important;
-        }
-
-        .topo {
-            padding:20px 18px 0 18px;
-            border-radius:0 0 30px 30px;
-        }
-
-        .logo {
-            font-size:24px;
-        }
-
-        .logo-sub {
-            font-size:10px;
-            letter-spacing:5px;
-        }
-
-        .perfil {
-            font-size:12px;
-            padding:8px 9px;
-        }
-
-        .hero {
-            margin:18px -18px 0 -18px;
-            padding:34px 26px 86px 26px;
-        }
-
-        .hero-title {
-            font-size:36px;
-        }
-
-        .hero-sub {
-            font-size:18px;
-        }
-
-        .content {
-            padding:0 18px;
-            margin-top:-60px;
-        }
-
-        .cards {
-            grid-template-columns:1fr;
-        }
+    div[data-testid="stDataFrame"] {
+        border-radius:18px !important;
+        overflow:hidden !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 
 # =========================
-# LOGIN
+# NAVEGAÇÃO
 # =========================
 
-def login():
-    if "logado" not in st.session_state:
-        st.session_state.logado = False
+def get_page():
+    page = st.query_params.get("page", "dashboard")
+    return page
 
-    if st.session_state.logado:
-        return
 
-    st.markdown("""
-    <div style="height:40px;"></div>
-    <div style="text-align:center;">
-        <div style="font-size:66px;">🐯</div>
-        <div style="font-size:48px;font-weight:1000;color:#111;">TIGRÃO</div>
-        <div style="color:#ff8500;font-weight:1000;letter-spacing:5px;margin-top:8px;">DISTRIBUIDORA</div>
+def set_page(page):
+    st.query_params["page"] = page
+
+
+def menu_html():
+    perfil = st.session_state.get("perfil", "VENDEDOR")
+    page = get_page()
+
+    def ativo(nome):
+        return "ativo" if page == nome else ""
+
+    admin = ""
+    if perfil == "ADMIN":
+        admin = f"""
+        <a class="{ativo('admin')} admin-link" href="?page=admin">
+            <span class="ico">⚙️</span>Admin
+        </a>
+        """
+
+    st.markdown(f"""
+    <div class="bottom-nav">
+        <a class="{ativo('dashboard')}" href="?page=dashboard">
+            <span class="ico">🏠</span>Início
+        </a>
+        <a class="{ativo('novo')}" href="?page=novo">
+            <span class="ico">🛒</span>Novo
+        </a>
+        <a class="{ativo('pedidos')}" href="?page=pedidos">
+            <span class="ico">📋</span>Pedidos
+        </a>
+        <a class="{ativo('comissao')}" href="?page=comissao">
+            <span class="ico">💰</span>Comissão
+        </a>
+        {admin}
+        <a class="{ativo('mais')}" href="?page=mais">
+            <span class="ico">☰</span>Mais
+        </a>
     </div>
-    <div style="height:25px;"></div>
     """, unsafe_allow_html=True)
 
-    usuario = st.text_input("Usuário")
-    senha = st.text_input("Senha", type="password")
-
-    if st.button("ENTRAR", use_container_width=True):
-        usuarios = ler_excel(ARQ_USUARIOS)
-
-        usuarios["usuario"] = usuarios["usuario"].astype(str).str.strip().str.lower()
-        usuarios["senha"] = usuarios["senha"].astype(str).str.strip()
-
-        achou = usuarios[
-            (usuarios["usuario"] == usuario.strip().lower()) &
-            (usuarios["senha"] == senha.strip())
-        ]
-
-        if len(achou) == 0:
-            st.error("Usuário ou senha inválidos.")
-        else:
-            user = achou.iloc[0]
-            st.session_state.logado = True
-            st.session_state.usuario = str(user["usuario"])
-            st.session_state.nome = str(user["nome"])
-            st.session_state.perfil = str(user["perfil"]).upper()
-            st.session_state.comissao = float(user.get("comissao", COMISSAO_PADRAO))
-            st.session_state.menu = "Dashboard"
-            st.session_state.carrinho = []
-            st.session_state.form_key = 0
-            st.rerun()
-
-    st.stop()
-
-
-# =========================
-# UI
-# =========================
 
 def topo(titulo, subtitulo):
     perfil = st.session_state.get("perfil", "VENDEDOR")
@@ -522,67 +494,96 @@ def topo(titulo, subtitulo):
             </div>
             <div class="perfil">👤 {perfil}</div>
         </div>
+
         <div class="hero">
             <div class="hero-title">{titulo}</div>
             <div class="hero-sub">{subtitulo}</div>
         </div>
     </div>
+    <div class="content">
     """, unsafe_allow_html=True)
 
 
-def abrir_conteudo():
-    st.markdown('<div class="content">', unsafe_allow_html=True)
-
-
-def fechar_conteudo():
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-def mudar_menu(nome):
-    st.session_state.menu = nome
-    st.rerun()
-
-
-def menu_inferior():
-    with st.container(key="bottom_nav"):
-        itens = [
-            ("Dashboard", "🏠 Dashboard"),
-            ("Novo Pedido", "🛒 Novo"),
-            ("Pedidos", "📋 Pedidos"),
-            ("Comissão", "💰 Comissão"),
-            ("Mais", "⋯ Mais"),
-        ]
-
-        cols = st.columns(len(itens))
-
-        for col, (destino, texto) in zip(cols, itens):
-            with col:
-                if st.button(texto, key=f"nav_{destino}", use_container_width=True):
-                    mudar_menu(destino)
+def fim():
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
-# TELAS PRINCIPAIS
+# LOGIN
+# =========================
+
+def login():
+    if "logado" not in st.session_state:
+        st.session_state.logado = False
+
+    if st.session_state.logado:
+        return
+
+    st.markdown("""
+    <div style="height:45px;"></div>
+    <div style="text-align:center;">
+        <div style="font-size:70px;">🐯</div>
+        <div style="font-size:44px;font-weight:1000;color:#111;">TIGRÃO</div>
+        <div style="color:#ff8500;font-weight:1000;letter-spacing:5px;margin-top:8px;">DISTRIBUIDORA</div>
+    </div>
+    <div style="height:25px;"></div>
+    """, unsafe_allow_html=True)
+
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
+
+    if st.button("ENTRAR", use_container_width=True):
+        usuarios = ler_excel(ARQ_USUARIOS)
+
+        if len(usuarios) == 0:
+            st.error("Base de usuários não encontrada.")
+            st.stop()
+
+        usuarios["usuario"] = usuarios["usuario"].astype(str).str.strip().str.lower()
+        usuarios["senha"] = usuarios["senha"].astype(str).str.strip()
+
+        achou = usuarios[
+            (usuarios["usuario"] == usuario.strip().lower()) &
+            (usuarios["senha"] == senha.strip())
+        ]
+
+        if len(achou) == 0:
+            st.error("Usuário ou senha inválidos.")
+        else:
+            user = achou.iloc[0]
+
+            st.session_state.logado = True
+            st.session_state.usuario = str(user["usuario"])
+            st.session_state.nome = str(user["nome"])
+            st.session_state.perfil = str(user["perfil"]).upper()
+            st.session_state.comissao = float(user.get("comissao", COMISSAO_PADRAO))
+            st.session_state.carrinho = []
+
+            st.query_params["page"] = "dashboard"
+            st.rerun()
+
+    st.stop()
+
+
+# =========================
+# TELAS
 # =========================
 
 def dashboard():
-    topo("Dashboard", "Visão geral da operação")
-    abrir_conteudo()
+    topo("Dashboard", "Resumo da operação")
 
     pedidos = ler_excel(ARQ_PEDIDOS)
     vendedor = st.session_state.get("nome", "")
     perfil = st.session_state.get("perfil", "VENDEDOR")
 
     if len(pedidos) and perfil != "ADMIN":
-        pedidos_view = pedidos[pedidos["vendedor"].astype(str) == vendedor].copy()
-    else:
-        pedidos_view = pedidos.copy()
+        pedidos = pedidos[pedidos["vendedor"].astype(str) == vendedor].copy()
 
-    if len(pedidos_view):
-        pedidos_view["total"] = pd.to_numeric(pedidos_view["total"], errors="coerce").fillna(0)
+    if len(pedidos):
+        pedidos["total"] = pd.to_numeric(pedidos["total"], errors="coerce").fillna(0)
 
-    total_pedidos = pedidos_view["pedido"].nunique() if len(pedidos_view) else 0
-    total_vendas = pedidos_view["total"].sum() if len(pedidos_view) else 0
+    total_pedidos = pedidos["pedido"].nunique() if len(pedidos) else 0
+    total_vendas = pedidos["total"].sum() if len(pedidos) else 0
     total_comissao = total_vendas * st.session_state.get("comissao", COMISSAO_PADRAO)
 
     st.markdown(f"""
@@ -591,47 +592,47 @@ def dashboard():
             <div class="metric-icon">📋</div>
             <div class="metric-title">PEDIDOS</div>
             <div class="metric-value">{total_pedidos}</div>
-            <div class="metric-sub">Total de pedidos</div>
+            <div class="metric-sub">Lançados</div>
         </div>
+
         <div class="metric">
+            <div class="metric-icon">💰</div>
+            <div class="metric-title">COMISSÃO</div>
+            <div class="metric-value">{dinheiro(total_comissao)}</div>
+            <div class="metric-sub">7%</div>
+        </div>
+
+        <div class="metric full">
             <div class="metric-icon">💲</div>
             <div class="metric-title">VENDAS</div>
             <div class="metric-value">{dinheiro(total_vendas)}</div>
-            <div class="metric-sub">Valor vendido</div>
-        </div>
-        <div class="metric">
-            <div class="metric-icon">%</div>
-            <div class="metric-title">COMISSÃO</div>
-            <div class="metric-value">{dinheiro(total_comissao)}</div>
-            <div class="metric-sub">Comissão 7%</div>
+            <div class="metric-sub">Total vendido</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="section-title">🕘 Últimos pedidos</div><div class="line-orange"></div>', unsafe_allow_html=True)
 
-    resumo = resumo_pedidos(pedidos_view).tail(6).sort_values("pedido", ascending=False)
+    resumo = resumo_pedidos(pedidos).sort_values("pedido", ascending=False).head(5)
 
     if len(resumo) == 0:
         st.info("Nenhum pedido lançado.")
     else:
         for _, row in resumo.iterrows():
             st.markdown(f"""
-            <div class="box">
+            <div class="pedido-card">
                 <b>Pedido #{row["pedido"]}</b><br>
-                Cliente: {row["cliente"]}<br>
-                Data: {row["data"]}<br>
-                Total: <b style="color:#ff8500">{dinheiro(row["total"])}</b><br>
-                Status: <b>{row["status"]}</b>
+                {row["cliente"]}<br>
+                <small>{row["data"]}</small><br>
+                <b style="color:#ff8500">{dinheiro(row["total"])}</b> — {row["status"]}
             </div>
             """, unsafe_allow_html=True)
 
-    fechar_conteudo()
+    fim()
 
 
 def novo_pedido():
-    topo("Novo Pedido", "Lançamento rápido de pedidos")
-    abrir_conteudo()
+    topo("Novo Pedido", "Lançamento pelo celular")
 
     clientes = ler_excel(ARQ_CLIENTES)
     produtos = ler_excel(ARQ_PRODUTOS)
@@ -639,35 +640,42 @@ def novo_pedido():
     if "carrinho" not in st.session_state:
         st.session_state.carrinho = []
 
-    if "form_key" not in st.session_state:
-        st.session_state.form_key = 0
-
     st.markdown('<div class="box">', unsafe_allow_html=True)
 
-    lista_clientes = clientes["cliente"].astype(str).tolist() if len(clientes) else ["CLIENTE PADRÃO"]
-    cliente = st.selectbox("Cliente", lista_clientes, key="cliente_pedido")
+    busca_cliente = st.text_input("Buscar cliente", placeholder="Digite nome, código ou iniciais")
 
-    fornecedores = ["Todos"]
-    if len(produtos) and "fornecedor" in produtos.columns:
-        fornecedores += sorted(produtos["fornecedor"].fillna("").astype(str).unique().tolist())
+    clientes_filtrados = clientes.copy()
+    if busca_cliente.strip():
+        termo = busca_cliente.strip().lower()
+        clientes_filtrados = clientes[
+            clientes["cliente"].astype(str).str.lower().str.contains(termo, na=False) |
+            clientes["codigo"].astype(str).str.lower().str.contains(termo, na=False) |
+            clientes["cnpj"].astype(str).str.lower().str.contains(termo, na=False)
+        ]
 
-    fornecedor = st.selectbox("Fornecedor", fornecedores, key="fornecedor_pedido")
+    lista_clientes = clientes_filtrados["cliente"].astype(str).tolist() if len(clientes_filtrados) else ["CLIENTE NÃO ENCONTRADO"]
+    cliente = st.selectbox("Cliente", lista_clientes)
 
-    if fornecedor != "Todos":
-        produtos_filtrados = produtos[produtos["fornecedor"].astype(str) == fornecedor].copy()
-    else:
-        produtos_filtrados = produtos.copy()
+    busca_produto = st.text_input("Buscar produto", placeholder="Digite código ou nome do produto")
 
-    opcoes_produtos = ["Selecione o produto"]
+    produtos_filtrados = produtos.copy()
+    if busca_produto.strip():
+        termo = busca_produto.strip().lower()
+        produtos_filtrados = produtos[
+            produtos["produto"].astype(str).str.lower().str.contains(termo, na=False) |
+            produtos["codigo"].astype(str).str.lower().str.contains(termo, na=False)
+        ]
+
+    opcoes = ["Selecione o produto"]
 
     for _, row in produtos_filtrados.iterrows():
-        opcoes_produtos.append(f'{row["codigo"]} - {row["produto"]} | {dinheiro(row["preco"])}')
+        opcoes.append(f'{row["codigo"]} - {row["produto"]} | {dinheiro(row["preco"])}')
 
-    produto_txt = st.selectbox("Produto", opcoes_produtos, key=f"produto_pedido_{st.session_state.form_key}")
+    produto_txt = st.selectbox("Produto", opcoes)
 
     produto = None
     if produto_txt != "Selecione o produto":
-        idx = opcoes_produtos.index(produto_txt) - 1
+        idx = opcoes.index(produto_txt) - 1
         produto = produtos_filtrados.iloc[idx].to_dict()
 
     if produto:
@@ -680,17 +688,17 @@ def novo_pedido():
         </div>
         """, unsafe_allow_html=True)
 
-    qtd = st.number_input("Quantidade", min_value=0, value=0, step=1, key=f"qtd_pedido_{st.session_state.form_key}")
-    desc = st.number_input("% Desconto", min_value=0.0, value=0.0, step=1.0, key=f"desc_pedido_{st.session_state.form_key}")
+    qtd = st.number_input("Quantidade", min_value=0, value=0, step=1)
+    desc = st.number_input("% Desconto", min_value=0.0, value=0.0, step=1.0)
 
     preco = safe_float(produto["preco"]) if produto else 0
     subtotal = preco * qtd
-    total = subtotal - (subtotal * desc / 100)
+    total_item = subtotal - (subtotal * desc / 100)
 
     st.markdown(f"""
     <div class="total-item">
         <div class="total-label">TOTAL DO ITEM</div>
-        <div class="total-value">{dinheiro(total)}</div>
+        <div class="total-value">{dinheiro(total_item)}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -699,6 +707,8 @@ def novo_pedido():
             st.warning("Selecione um produto.")
         elif qtd <= 0:
             st.warning("Informe a quantidade.")
+        elif cliente == "CLIENTE NÃO ENCONTRADO":
+            st.warning("Selecione um cliente válido.")
         else:
             st.session_state.carrinho.append({
                 "codigo": produto["codigo"],
@@ -708,56 +718,41 @@ def novo_pedido():
                 "preco": preco,
                 "desconto": desc,
                 "subtotal": subtotal,
-                "total": total,
+                "total": total_item,
             })
-            st.session_state.form_key += 1
             st.success("Produto adicionado.")
-            time.sleep(0.3)
+            time.sleep(0.4)
             st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
     carrinho(cliente)
 
-    fechar_conteudo()
+    fim()
 
 
 def carrinho(cliente):
-    st.markdown('<div class="section-title">📦 Carrinho</div><div class="line-orange"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🛒 Carrinho</div><div class="line-orange"></div>', unsafe_allow_html=True)
 
     if len(st.session_state.carrinho) == 0:
         st.info("Nenhum produto adicionado.")
         return
 
-    st.markdown('<div class="box">', unsafe_allow_html=True)
-
     for i, item in enumerate(st.session_state.carrinho):
-        col1, col2, col3, col4, col5 = st.columns([0.4, 2.4, 0.7, 1, 1])
+        st.markdown(f"""
+        <div class="pedido-card">
+            <b>{item["produto"]}</b><br>
+            Qtd: {item["quantidade"]} | Unit: {dinheiro(item["preco"])}<br>
+            Total: <b style="color:#ff8500">{dinheiro(item["total"])}</b>
+        </div>
+        """, unsafe_allow_html=True)
 
-        with col1:
-            if st.button("🗑", key=f"del_{i}"):
-                st.session_state.carrinho.pop(i)
-                st.rerun()
+        if st.button(f"🗑 Remover item {i+1}", key=f"del_{i}", use_container_width=True):
+            st.session_state.carrinho.pop(i)
+            st.rerun()
 
-        with col2:
-            st.write(f"**{item['produto']}**")
-            st.caption(f"Cód: {item['codigo']}")
-
-        with col3:
-            st.write(int(item["quantidade"]))
-
-        with col4:
-            st.write(dinheiro(item["preco"]))
-
-        with col5:
-            st.write(dinheiro(item["total"]))
-
-        st.divider()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    subtotal = sum([safe_float(x["subtotal"]) for x in st.session_state.carrinho])
-    total = sum([safe_float(x["total"]) for x in st.session_state.carrinho])
+    subtotal = sum(safe_float(x["subtotal"]) for x in st.session_state.carrinho)
+    total = sum(safe_float(x["total"]) for x in st.session_state.carrinho)
     desconto = subtotal - total
 
     st.markdown(f"""
@@ -797,21 +792,18 @@ def carrinho(cliente):
         salvar_excel(pedidos, ARQ_PEDIDOS)
 
         st.session_state.carrinho = []
-        st.session_state.form_key += 1
-
         st.success(f"Pedido nº {numero} salvo com sucesso!")
-        time.sleep(0.8)
+        time.sleep(1)
+        st.query_params["page"] = "pedidos"
         st.rerun()
 
     if st.button("🧹 LIMPAR CARRINHO", use_container_width=True):
         st.session_state.carrinho = []
-        st.session_state.form_key += 1
         st.rerun()
 
 
 def pedidos_tela():
-    topo("Pedidos", "Pedidos lançados")
-    abrir_conteudo()
+    topo("Pedidos", "Histórico de pedidos")
 
     pedidos = ler_excel(ARQ_PEDIDOS)
     vendedor = st.session_state.get("nome", "")
@@ -824,50 +816,39 @@ def pedidos_tela():
 
     if len(resumo) == 0:
         st.info("Nenhum pedido lançado.")
-        fechar_conteudo()
-        return
+    else:
+        for _, row in resumo.iterrows():
+            st.markdown(f"""
+            <div class="pedido-card">
+                <b>Pedido #{row["pedido"]}</b><br>
+                Cliente: {row["cliente"]}<br>
+                Vendedor: {row["vendedor"]}<br>
+                Data: {row["data"]}<br>
+                Total: <b style="color:#ff8500">{dinheiro(row["total"])}</b><br>
+                Status: <b>{row["status"]}</b>
+            </div>
+            """, unsafe_allow_html=True)
 
-    for _, row in resumo.iterrows():
-        status = str(row["status"]).upper()
+            if str(row["status"]).upper() == "PENDENTE":
+                if st.button(f"✏️ Editar pedido {row['pedido']}", key=f"edit_{row['pedido']}", use_container_width=True):
+                    st.session_state.pedido_editando = int(row["pedido"])
+                    st.query_params["page"] = "editar"
+                    st.rerun()
 
-        st.markdown(f"""
-        <div class="box">
-            <b>Pedido #{row["pedido"]}</b><br>
-            Cliente: {row["cliente"]}<br>
-            Data: {row["data"]}<br>
-            Vendedor: {row["vendedor"]}<br>
-            Total: <b style="color:#ff8500">{dinheiro(row["total"])}</b><br>
-            Status: <b>{status}</b>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if status == "PENDENTE":
-            if st.button(f"✏️ Editar pedido {row['pedido']}", key=f"edit_{row['pedido']}", use_container_width=True):
-                st.session_state.pedido_editando = int(row["pedido"])
-                st.session_state.menu = "Editar Pedido"
-                st.rerun()
-
-    fechar_conteudo()
+    fim()
 
 
 def editar_pedido():
     topo("Editar Pedido", "Alterar pedido pendente")
-    abrir_conteudo()
 
     numero = st.session_state.get("pedido_editando")
     pedidos = ler_excel(ARQ_PEDIDOS)
+
     dados = pedidos[pedidos["pedido"] == numero].copy()
 
     if len(dados) == 0:
         st.error("Pedido não encontrado.")
-        fechar_conteudo()
-        return
-
-    status = str(dados["status"].iloc[0]).upper()
-
-    if status == "FATURADO" and st.session_state.get("perfil") != "ADMIN":
-        st.error("Pedido faturado não pode ser alterado pelo vendedor.")
-        fechar_conteudo()
+        fim()
         return
 
     st.info(f"Pedido #{numero} - {dados['cliente'].iloc[0]}")
@@ -877,16 +858,15 @@ def editar_pedido():
     for idx, row in dados.iterrows():
         st.markdown(f"### {row['produto']}")
 
-        qtd = st.number_input("Quantidade", min_value=0, value=int(row["quantidade"]), step=1, key=f"edit_qtd_{idx}")
-        desc = st.number_input("% Desconto", min_value=0.0, value=safe_float(row["desconto"]), step=1.0, key=f"edit_desc_{idx}")
+        qtd = st.number_input("Quantidade", min_value=0, value=int(row["quantidade"]), step=1, key=f"qtd_{idx}")
+        desc = st.number_input("% Desconto", min_value=0.0, value=safe_float(row["desconto"]), step=1.0, key=f"desc_{idx}")
+        excluir = st.checkbox("Excluir item", key=f"exc_{idx}")
 
         preco = safe_float(row["preco"])
         subtotal = preco * qtd
         total = subtotal - (subtotal * desc / 100)
 
         st.write(f"Total: **{dinheiro(total)}**")
-
-        excluir = st.checkbox("Excluir item", key=f"excluir_{idx}")
 
         if not excluir and qtd > 0:
             item = row.to_dict()
@@ -900,28 +880,26 @@ def editar_pedido():
 
     if st.button("💾 SALVAR ALTERAÇÕES", use_container_width=True):
         if len(novos) == 0:
-            st.warning("Não é possível salvar pedido sem itens.")
-            return
+            st.warning("Pedido não pode ficar sem itens.")
+        else:
+            pedidos = pedidos[pedidos["pedido"] != numero]
+            pedidos = pd.concat([pedidos, pd.DataFrame(novos)], ignore_index=True)
+            salvar_excel(pedidos, ARQ_PEDIDOS)
 
-        pedidos = pedidos[pedidos["pedido"] != numero]
-        pedidos = pd.concat([pedidos, pd.DataFrame(novos)], ignore_index=True)
-        salvar_excel(pedidos, ARQ_PEDIDOS)
-
-        st.success("Pedido atualizado.")
-        time.sleep(0.8)
-        st.session_state.menu = "Pedidos"
-        st.rerun()
+            st.success("Pedido atualizado.")
+            time.sleep(0.8)
+            st.query_params["page"] = "pedidos"
+            st.rerun()
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.session_state.menu = "Pedidos"
+        st.query_params["page"] = "pedidos"
         st.rerun()
 
-    fechar_conteudo()
+    fim()
 
 
 def comissao_tela():
     topo("Comissão", "Resumo da comissão")
-    abrir_conteudo()
 
     pedidos = ler_excel(ARQ_PEDIDOS)
     vendedor = st.session_state.get("nome", "")
@@ -937,107 +915,68 @@ def comissao_tela():
 
     st.markdown(f"""
     <div class="cards">
-        <div class="metric">
+        <div class="metric full">
             <div class="metric-icon">💲</div>
             <div class="metric-title">VENDAS</div>
             <div class="metric-value">{dinheiro(vendas)}</div>
             <div class="metric-sub">Total vendido</div>
         </div>
-        <div class="metric">
-            <div class="metric-icon">%</div>
+
+        <div class="metric full">
+            <div class="metric-icon">💰</div>
             <div class="metric-title">COMISSÃO</div>
             <div class="metric-value">{dinheiro(comissao)}</div>
-            <div class="metric-sub">Comissão 7%</div>
-        </div>
-        <div class="metric">
-            <div class="metric-icon">🎯</div>
-            <div class="metric-title">META</div>
-            <div class="metric-value">0%</div>
-            <div class="metric-sub">Em breve</div>
+            <div class="metric-sub">7%</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    fechar_conteudo()
+    fim()
 
-
-def mais_tela():
-    topo("Mais", "Outras opções")
-    abrir_conteudo()
-
-    st.markdown('<div class="box">', unsafe_allow_html=True)
-    st.write(f"**Usuário:** {st.session_state.get('nome')}")
-    st.write(f"**Perfil:** {st.session_state.get('perfil')}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if st.session_state.get("perfil") == "ADMIN":
-        if st.button("⚙️ ADMINISTRAÇÃO", use_container_width=True):
-            st.session_state.menu = "Admin"
-            st.rerun()
-
-    if st.button("🚪 SAIR", key="btn_sair", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
-    fechar_conteudo()
-
-
-# =========================
-# ADMIN
-# =========================
 
 def admin_tela():
     topo("Administração", "Área do administrador")
-    abrir_conteudo()
 
     if st.session_state.get("perfil") != "ADMIN":
         st.error("Acesso permitido somente para administrador.")
-        fechar_conteudo()
+        fim()
         return
 
     st.markdown('<div class="box">', unsafe_allow_html=True)
 
-    if st.button("👥 Cadastrar usuários", use_container_width=True):
-        st.session_state.menu = "Admin Usuários"
+    if st.button("👥 Usuários", use_container_width=True):
+        st.query_params["page"] = "admin_usuarios"
         st.rerun()
 
-    if st.button("🏪 Cadastrar clientes", use_container_width=True):
-        st.session_state.menu = "Admin Clientes"
+    if st.button("🏪 Clientes", use_container_width=True):
+        st.query_params["page"] = "admin_clientes"
         st.rerun()
 
-    if st.button("📦 Cadastrar produtos", use_container_width=True):
-        st.session_state.menu = "Admin Produtos"
+    if st.button("📦 Produtos", use_container_width=True):
+        st.query_params["page"] = "admin_produtos"
         st.rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    fechar_conteudo()
+    fim()
 
 
 def admin_usuarios():
     topo("Usuários", "Cadastro de vendedores")
-    abrir_conteudo()
-
-    if st.session_state.get("perfil") != "ADMIN":
-        st.error("Acesso negado.")
-        fechar_conteudo()
-        return
 
     usuarios = ler_excel(ARQ_USUARIOS)
 
     with st.form("form_usuario"):
-        nome = st.text_input("Nome do vendedor")
+        nome = st.text_input("Nome")
         usuario = st.text_input("Usuário")
         senha = st.text_input("Senha")
         perfil = st.selectbox("Perfil", ["VENDEDOR", "ADMIN"])
         comissao = st.number_input("Comissão", value=0.07, step=0.01)
 
-        salvar = st.form_submit_button("💾 SALVAR USUÁRIO", use_container_width=True)
+        salvar = st.form_submit_button("💾 SALVAR", use_container_width=True)
 
     if salvar:
-        if nome.strip() == "" or usuario.strip() == "" or senha.strip() == "":
-            st.warning("Preencha nome, usuário e senha.")
-        else:
+        if nome and usuario and senha:
             novo = pd.DataFrame([{
                 "usuario": usuario.strip().lower(),
                 "senha": senha.strip(),
@@ -1045,47 +984,40 @@ def admin_usuarios():
                 "perfil": perfil,
                 "comissao": comissao,
             }])
-
             usuarios = pd.concat([usuarios, novo], ignore_index=True)
             salvar_excel(usuarios, ARQ_USUARIOS)
-            st.success("Usuário cadastrado com sucesso.")
+            st.success("Usuário cadastrado.")
             time.sleep(0.5)
             st.rerun()
+        else:
+            st.warning("Preencha todos os campos.")
 
     st.dataframe(usuarios, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.session_state.menu = "Admin"
+        st.query_params["page"] = "admin"
         st.rerun()
 
-    fechar_conteudo()
+    fim()
 
 
 def admin_clientes():
     topo("Clientes", "Cadastro de clientes")
-    abrir_conteudo()
-
-    if st.session_state.get("perfil") != "ADMIN":
-        st.error("Acesso negado.")
-        fechar_conteudo()
-        return
 
     clientes = ler_excel(ARQ_CLIENTES)
 
     with st.form("form_cliente"):
-        cliente = st.text_input("Nome do cliente")
+        cliente = st.text_input("Cliente")
         cnpj = st.text_input("CNPJ")
         telefone = st.text_input("Telefone")
         cidade = st.text_input("Cidade")
 
-        salvar = st.form_submit_button("💾 SALVAR CLIENTE", use_container_width=True)
+        salvar = st.form_submit_button("💾 SALVAR", use_container_width=True)
 
     if salvar:
-        if cliente.strip() == "":
-            st.warning("Informe o nome do cliente.")
-        else:
+        if cliente:
             codigo = 1
-            if len(clientes) and "codigo" in clientes.columns:
+            if len(clientes):
                 maior = pd.to_numeric(clientes["codigo"], errors="coerce").max()
                 codigo = 1 if pd.isna(maior) else int(maior) + 1
 
@@ -1099,27 +1031,21 @@ def admin_clientes():
 
             clientes = pd.concat([clientes, novo], ignore_index=True)
             salvar_excel(clientes, ARQ_CLIENTES)
-            st.success("Cliente cadastrado com sucesso.")
+            st.success("Cliente cadastrado.")
             time.sleep(0.5)
             st.rerun()
 
     st.dataframe(clientes, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.session_state.menu = "Admin"
+        st.query_params["page"] = "admin"
         st.rerun()
 
-    fechar_conteudo()
+    fim()
 
 
 def admin_produtos():
     topo("Produtos", "Cadastro de produtos")
-    abrir_conteudo()
-
-    if st.session_state.get("perfil") != "ADMIN":
-        st.error("Acesso negado.")
-        fechar_conteudo()
-        return
 
     produtos = ler_excel(ARQ_PRODUTOS)
 
@@ -1130,12 +1056,10 @@ def admin_produtos():
         preco = st.number_input("Preço", min_value=0.0, step=0.01)
         fornecedor = st.text_input("Fornecedor")
 
-        salvar = st.form_submit_button("💾 SALVAR PRODUTO", use_container_width=True)
+        salvar = st.form_submit_button("💾 SALVAR", use_container_width=True)
 
     if salvar:
-        if codigo.strip() == "" or produto.strip() == "":
-            st.warning("Informe código e produto.")
-        else:
+        if codigo and produto:
             novo = pd.DataFrame([{
                 "codigo": codigo.strip(),
                 "produto": produto.strip().upper(),
@@ -1143,20 +1067,35 @@ def admin_produtos():
                 "preco": preco,
                 "fornecedor": fornecedor.strip().upper(),
             }])
-
             produtos = pd.concat([produtos, novo], ignore_index=True)
             salvar_excel(produtos, ARQ_PRODUTOS)
-            st.success("Produto cadastrado com sucesso.")
+            st.success("Produto cadastrado.")
             time.sleep(0.5)
             st.rerun()
 
     st.dataframe(produtos, use_container_width=True)
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        st.session_state.menu = "Admin"
+        st.query_params["page"] = "admin"
         st.rerun()
 
-    fechar_conteudo()
+    fim()
+
+
+def mais_tela():
+    topo("Mais", "Opções do sistema")
+
+    st.markdown('<div class="box">', unsafe_allow_html=True)
+    st.write(f"**Usuário:** {st.session_state.get('nome')}")
+    st.write(f"**Perfil:** {st.session_state.get('perfil')}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.button("🚪 SAIR", use_container_width=True):
+        st.session_state.clear()
+        st.query_params.clear()
+        st.rerun()
+
+    fim()
 
 
 # =========================
@@ -1167,31 +1106,29 @@ criar_banco()
 css()
 login()
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "Dashboard"
+page = get_page()
 
-menu = st.session_state.menu
-
-if menu == "Dashboard":
+if page == "dashboard":
     dashboard()
-elif menu == "Novo Pedido":
+elif page == "novo":
     novo_pedido()
-elif menu == "Pedidos":
+elif page == "pedidos":
     pedidos_tela()
-elif menu == "Editar Pedido":
+elif page == "editar":
     editar_pedido()
-elif menu == "Comissão":
+elif page == "comissao":
     comissao_tela()
-elif menu == "Mais":
-    mais_tela()
-elif menu == "Admin":
+elif page == "admin":
     admin_tela()
-elif menu == "Admin Usuários":
+elif page == "admin_usuarios":
     admin_usuarios()
-elif menu == "Admin Clientes":
+elif page == "admin_clientes":
     admin_clientes()
-elif menu == "Admin Produtos":
+elif page == "admin_produtos":
     admin_produtos()
+elif page == "mais":
+    mais_tela()
+else:
+    dashboard()
 
-st.markdown('<div class="bottom-space"></div>', unsafe_allow_html=True)
-menu_inferior()
+menu_html()
