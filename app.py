@@ -1,15 +1,4 @@
-import os
-import time
-from datetime import datetime
-
-import pandas as pd
-import streamlit as st
-
-st.set_page_config(
-    page_title="Tigrão Premium",
-    page_icon="🐯",
-    layout="centered",
-    initial_sidebar_state="collapsed",
+d",
 )
 
 PASTA_DADOS = "dados"
