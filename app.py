@@ -473,15 +473,7 @@ def topo(titulo, subtitulo, icone="📦"):
 def menu_nativo():
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    labels = {
-        "dashboard": "🏠\nInício",
-        "novo": "🛒\nNovo Pedido",
-        "pedidos": "📋\nPedidos",
-        "comissao": "💰\nComissão",
-        "mais": "☰\nMais",
-    }
-
-    col1, col2, col3, col4, col5 = st.columns(5, gap="small")
+    col1, col2, col3, col4, col5, col6 = st.columns(6, gap="small")
 
     with col1:
         texto = "✅ Início" if st.session_state.page == "dashboard" else "🏠 Início"
@@ -494,16 +486,21 @@ def menu_nativo():
             ir_para("novo")
 
     with col3:
+        texto = "✅ Cliente" if st.session_state.page == "cadastrar_cliente" else "👤 Cliente"
+        if st.button(texto, key="nav_cadastrar_cliente", use_container_width=True):
+            ir_para("cadastrar_cliente")
+
+    with col4:
         texto = "✅ Pedidos" if st.session_state.page == "pedidos" else "📋 Pedidos"
         if st.button(texto, key="nav_pedidos", use_container_width=True):
             ir_para("pedidos")
 
-    with col4:
+    with col5:
         texto = "✅ Com." if st.session_state.page == "comissao" else "💰 Com."
         if st.button(texto, key="nav_comissao", use_container_width=True):
             ir_para("comissao")
 
-    with col5:
+    with col6:
         texto = "✅ Mais" if st.session_state.page == "mais" else "☰ Mais"
         if st.button(texto, key="nav_mais", use_container_width=True):
             ir_para("mais")
@@ -665,6 +662,9 @@ def novo_pedido():
     # CLIENTE ÚNICO
     # =========================
     secao("CLIENTE", "👤")
+
+    if st.button("➕ CADASTRAR NOVO CLIENTE", key="btn_cad_cliente_novo_pedido", use_container_width=True):
+        ir_para("cadastrar_cliente")
 
     cliente_escolhido = st.session_state.cliente_selecionado
 
