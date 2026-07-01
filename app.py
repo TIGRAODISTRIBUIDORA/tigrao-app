@@ -473,7 +473,15 @@ def topo(titulo, subtitulo, icone="📦"):
 def menu_nativo():
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    col1, col2, col3, col4, col5, col6 = st.columns(6, gap="small")
+    labels = {
+        "dashboard": "🏠\nInício",
+        "novo": "🛒\nNovo Pedido",
+        "pedidos": "📋\nPedidos",
+        "comissao": "💰\nComissão",
+        "mais": "☰\nMais",
+    }
+
+    col1, col2, col3, col4, col5 = st.columns(5, gap="small")
 
     with col1:
         texto = "✅ Início" if st.session_state.page == "dashboard" else "🏠 Início"
@@ -486,21 +494,16 @@ def menu_nativo():
             ir_para("novo")
 
     with col3:
-        texto = "✅ Cliente" if st.session_state.page == "cadastrar_cliente" else "👤 Cliente"
-        if st.button(texto, key="nav_cadastrar_cliente", use_container_width=True):
-            ir_para("cadastrar_cliente")
-
-    with col4:
         texto = "✅ Pedidos" if st.session_state.page == "pedidos" else "📋 Pedidos"
         if st.button(texto, key="nav_pedidos", use_container_width=True):
             ir_para("pedidos")
 
-    with col5:
+    with col4:
         texto = "✅ Com." if st.session_state.page == "comissao" else "💰 Com."
         if st.button(texto, key="nav_comissao", use_container_width=True):
             ir_para("comissao")
 
-    with col6:
+    with col5:
         texto = "✅ Mais" if st.session_state.page == "mais" else "☰ Mais"
         if st.button(texto, key="nav_mais", use_container_width=True):
             ir_para("mais")
@@ -663,9 +666,6 @@ def novo_pedido():
     # =========================
     secao("CLIENTE", "👤")
 
-    if st.button("➕ CADASTRAR NOVO CLIENTE", key="btn_cad_cliente_novo_pedido", use_container_width=True):
-        ir_para("cadastrar_cliente")
-
     cliente_escolhido = st.session_state.cliente_selecionado
 
     if cliente_escolhido:
@@ -690,6 +690,9 @@ def novo_pedido():
             label_visibility="collapsed",
             key=f"busca_cliente_unica_{st.session_state.form_key}",
         )
+
+        if st.button("➕ CADASTRAR NOVO CLIENTE", key="btn_cadastrar_cliente_novo_pedido", use_container_width=True):
+            ir_para("cadastrar_cliente")
 
         cliente = None
 
@@ -1081,7 +1084,7 @@ def cadastrar_cliente_vendedor():
         salvar = st.form_submit_button("💾 SALVAR CLIENTE", use_container_width=True)
 
     if salvar:
-        if cliente:
+        if cliente.strip():
             codigo = 1
 
             if len(clientes) and "codigo" in clientes.columns:
@@ -1100,7 +1103,7 @@ def cadastrar_cliente_vendedor():
             salvar_excel(clientes, ARQ_CLIENTES)
 
             st.success("Cliente cadastrado com sucesso.")
-            time.sleep(0.6)
+            time.sleep(0.7)
             ir_para("novo")
         else:
             st.warning("Informe o nome do cliente.")
@@ -1108,7 +1111,7 @@ def cadastrar_cliente_vendedor():
     fechar_card()
 
     if st.button("⬅️ VOLTAR", use_container_width=True):
-        ir_para("mais")
+        ir_para("novo")
 
 
 def admin_tela():
@@ -1260,9 +1263,6 @@ def mais_tela():
     topo("Mais", "Opções do sistema", "☰")
 
     st.info(f"Usuário: {st.session_state.get('nome')} | Perfil: {st.session_state.get('perfil')}")
-
-    if st.button("👤 CADASTRAR CLIENTE", use_container_width=True):
-        ir_para("cadastrar_cliente")
 
     if st.session_state.get("perfil") == "ADMIN":
         if st.button("⚙️ ADMINISTRAÇÃO", use_container_width=True):
