@@ -1066,54 +1066,6 @@ def comissao_tela():
     st.metric("💰 Comissão", dinheiro(comissao))
 
 
-
-def cadastrar_cliente_vendedor():
-    topo("Cadastrar Cliente", "Cadastro rápido de cliente", "👤")
-
-    clientes = ler_excel(ARQ_CLIENTES)
-
-    abrir_card()
-    secao("DADOS DO CLIENTE", "👤")
-
-    with st.form("form_cliente_vendedor"):
-        cliente = st.text_input("Nome do cliente")
-        cnpj = st.text_input("CNPJ")
-        telefone = st.text_input("Telefone")
-        cidade = st.text_input("Cidade")
-
-        salvar = st.form_submit_button("💾 SALVAR CLIENTE", use_container_width=True)
-
-    if salvar:
-        if cliente.strip():
-            codigo = 1
-
-            if len(clientes) and "codigo" in clientes.columns:
-                maior = pd.to_numeric(clientes["codigo"], errors="coerce").max()
-                codigo = 1 if pd.isna(maior) else int(maior) + 1
-
-            novo = pd.DataFrame([{
-                "codigo": codigo,
-                "cliente": cliente.strip().upper(),
-                "cnpj": cnpj.strip(),
-                "telefone": telefone.strip(),
-                "cidade": cidade.strip().upper(),
-            }])
-
-            clientes = pd.concat([clientes, novo], ignore_index=True)
-            salvar_excel(clientes, ARQ_CLIENTES)
-
-            st.success("Cliente cadastrado com sucesso.")
-            time.sleep(0.7)
-            ir_para("novo")
-        else:
-            st.warning("Informe o nome do cliente.")
-
-    fechar_card()
-
-    if st.button("⬅️ VOLTAR", use_container_width=True):
-        ir_para("novo")
-
-
 def admin_tela():
     topo("Administração", "Área do administrador", "⚙️")
 
@@ -1293,8 +1245,6 @@ elif page == "editar":
     editar_pedido()
 elif page == "comissao":
     comissao_tela()
-elif page == "cadastrar_cliente":
-    cadastrar_cliente_vendedor()
 elif page == "admin":
     admin_tela()
 elif page == "admin_usuarios":
