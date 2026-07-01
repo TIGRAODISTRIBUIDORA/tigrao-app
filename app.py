@@ -547,7 +547,7 @@ def login():
 
     st.subheader("Entrar no sistema")
 
-    usuario = st.text_input("Usuário")
+    usuario = st.text_input("CPF")
     senha = st.text_input("Senha", type="password")
 
     if st.button("ENTRAR", use_container_width=True):
@@ -1093,7 +1093,7 @@ def admin_usuarios():
 
     with st.form("form_usuario"):
         nome = st.text_input("Nome")
-        usuario = st.text_input("Usuário")
+        usuario = st.text_input("CPF")
         senha = st.text_input("Senha")
         perfil = st.selectbox("Perfil", ["VENDEDOR", "ADMIN"])
         comissao = st.number_input("Comissão", value=0.07, step=0.01)
